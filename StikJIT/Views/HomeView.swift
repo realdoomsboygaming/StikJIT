@@ -1,8 +1,8 @@
 //
-//  ContentView.swift
+//  HomeView.swift
 //  StikJIT
 //
-//  Created by doomsboygaming on 3/28/25.
+//  Editied by doomsboygaming on 3/28/25.
 //
 
 import SwiftUI
@@ -32,7 +32,7 @@ struct HomeView: View {
     @State private var importProgress: Float = 0.0
     
     @State private var viewDidAppeared = false
-    @State private var pendingBundleIdToEnableJIT : String? = nil
+    @State private var pendingBundleIdToEnableJIT: String? = nil
     @StateObject private var appsViewModel = InstalledAppsViewModel()
     
     var recentBundleIDs: [String] {
@@ -55,153 +55,7 @@ struct HomeView: View {
         ZStack {
             selectedBackgroundColor.edgesIgnoringSafeArea(.all)
             
-            VStack(spacing: 25) {
-                Spacer()
-                VStack(spacing: 5) {
-                    Text("Welcome to StikJIT \(username)!")
-                        .font(.system(.largeTitle, design: .rounded))
-                        .fontWeight(.bold)
-                    
-                    Text(pairingFileExists ? "Click enable JIT to get started" : "Pick pairing file to get started")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.top, 40)
-                
-                // Main action button - changes based on whether we have a pairing file
-                Button(action: {
-                    if pairingFileExists {
-                        // Got a pairing file, show apps
-                        isShowingInstalledApps = true
-                    } else {
-                        // No pairing file yet, let's get one
-                        isShowingPairingFilePicker = true
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: pairingFileExists ? "bolt.fill" : "doc.badge.plus")
-                            .font(.system(size: 20))
-                        Text(pairingFileExists ? "Enable JIT" : "Select Pairing File")
-                            .font(.system(.title3, design: .rounded))
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(16)
-                    .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
-                }
-                .padding(.horizontal, 20)
-                
-                // Recent Apps Section
-                if pairingFileExists && !recentBundleIDs.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Recent Apps")
-                            .font(.system(.headline, design: .rounded))
-                            .padding(.horizontal, 20)
-                            .padding(.top, 10)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 15) {
-                                ForEach(recentBundleIDs, id: \.self) { bundleID in
-                                    Button(action: {
-                                        HapticFeedbackHelper.trigger()
-                                        startJITInBackground(with: bundleID)
-                                    }) {
-                                        VStack(spacing: 8) {
-                                            // Display app icon if available, placeholder if not
-                                            if let appName = appsViewModel.apps[bundleID] {
-                                                AppIconView(bundleID: bundleID, appName: appName)
-                                                    .frame(width: 60, height: 60)
-                                            } else {
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .fill(Color.blue.opacity(0.1))
-                                                    .frame(width: 60, height: 60)
-                                                    .overlay(
-                                                        Image(systemName: "bolt.fill")
-                                                            .font(.system(size: 22))
-                                                            .foregroundColor(.blue)
-                                                    )
-                                            }
-                                            
-                                            // App name or bundle ID
-                                            Text(appsViewModel.apps[bundleID] ?? bundleID.components(separatedBy: ".").last ?? "App")
-                                                .font(.system(size: 12, design: .rounded))
-                                                .lineLimit(1)
-                                                .frame(width: 70)
-                                                .foregroundColor(.primary)
-                                        }
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 5)
-                        }
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.cardBackground.opacity(0.4))
-                            .padding(.horizontal, 12)
-                    )
-                    .padding(.horizontal, 8)
-                    .padding(.top, 5)
-                }
-                
-                // Status message area - keeps layout consistent
-                ZStack {
-                    // Progress bar for importing file
-                    if isImportingFile {
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text("Processing pairing file...")
-                                    .font(.system(.caption, design: .rounded))
-                                    .foregroundColor(.secondaryText)
-                                Spacer()
-                                Text("\(Int(importProgress * 100))%")
-                                    .font(.system(.caption, design: .rounded))
-                                    .foregroundColor(.secondaryText)
-                            }
-                            
-                            GeometryReader { geometry in
-                                ZStack(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(Color.black.opacity(0.2))
-                                        .frame(height: 8)
-                                    
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(Color.green)
-                                        .frame(width: geometry.size.width * CGFloat(importProgress), height: 8)
-                                        .animation(.linear(duration: 0.3), value: importProgress)
-                                }
-                            }
-                            .frame(height: 8)
-                        }
-                        .padding(.horizontal, 40)
-                    }
-                    
-                    // Success message
-                    if showPairingFileMessage && pairingFileIsValid {
-                        Text("✓ Pairing file successfully imported")
-                            .font(.system(.callout, design: .rounded))
-                            .foregroundColor(.green)
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 12)
-                            .background(Color.green.opacity(0.1))
-                            .cornerRadius(8)
-                            .transition(.opacity)
-                    }
-                    
-                    // Invisible text to reserve space - no layout jumps
-                    Text(" ").opacity(0)
-                }
-                .frame(height: isImportingFile ? 60 : 30)  // Adjust height based on what's showing
-                
-                Spacer()
-            }
-            .padding()
+            homeContent
         }
         .onAppear {
             checkPairingFileExists()
@@ -213,109 +67,272 @@ struct HomeView: View {
             refreshBackground()
             checkPairingFileExists()
         }
-        .fileImporter(isPresented: $isShowingPairingFilePicker, allowedContentTypes: [UTType(filenameExtension: "mobiledevicepairing", conformingTo: .data)!, .propertyList]) {result in
-            switch result {
-            
-            case .success(let url):
-                let fileManager = FileManager.default
-                let accessing = url.startAccessingSecurityScopedResource()
-                
-                if fileManager.fileExists(atPath: url.path) {
-                    do {
-                        if fileManager.fileExists(atPath: URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path) {
-                            try fileManager.removeItem(at: URL.documentsDirectory.appendingPathComponent("pairingFile.plist"))
-                        }
-                        
-                        try fileManager.copyItem(at: url, to: URL.documentsDirectory.appendingPathComponent("pairingFile.plist"))
-                        print("File copied successfully!")
-                        
-                        // Show progress bar and initialize progress
-                        DispatchQueue.main.async {
-                            isImportingFile = true
-                            importProgress = 0.0
-                            pairingFileExists = true
-                        }
-                        
-                        // Start heartbeat in background
-                        startHeartbeatInBackground()
-                        
-                        // Create timer to update progress instead of sleeping
-                        let progressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-                            DispatchQueue.main.async {
-                                if importProgress < 1.0 {
-                                    importProgress += 0.25
-                                } else {
-                                    timer.invalidate()
-                                    isImportingFile = false
-                                    pairingFileIsValid = true
-                                    
-                                    // Show success message
-                                    withAnimation {
-                                        showPairingFileMessage = true
-                                    }
-                                    
-                                    // Hide message after delay
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                                        withAnimation {
-                                            showPairingFileMessage = false
-                                        }
-                                    }
-                                    
-                                    // Load apps after pairing file is imported
-                                    loadApps()
-                                }
-                            }
-                        }
-                        
-                        // Ensure timer keeps running
-                        RunLoop.current.add(progressTimer, forMode: .common)
-                        
-                    } catch {
-                        print("Error copying file: \(error)")
-                    }
-                } else {
-                    print("Source file does not exist.")
-                }
-                
-                if accessing {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            case .failure(let error):
-                print("Failed to import file: \(error)")
-            }
+        .fileImporter(isPresented: $isShowingPairingFilePicker, allowedContentTypes: [UTType(filenameExtension: "mobiledevicepairing", conformingTo: .data)!, .propertyList]) { result in
+            handleFileImportResult(result)
         }
         .sheet(isPresented: $isShowingInstalledApps) {
             InstalledAppsListView { selectedBundle in
                 bundleID = selectedBundle
                 isShowingInstalledApps = false
                 HapticFeedbackHelper.trigger()
-                addToRecent(bundleID: selectedBundle) // Add to recent apps
+                addToRecent(bundleID: selectedBundle)
                 startJITInBackground(with: selectedBundle)
             }
         }
         .onOpenURL { url in
-            print(url.path())
-            if url.host() != "enable-jit" {
-                return
-            }
-            
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            if let bundleId = components?.queryItems?.first(where: { $0.name == "bundle-id" })?.value {
-                if viewDidAppeared {
-                    addToRecent(bundleID: bundleId) // Add to recent apps
-                    startJITInBackground(with: bundleId)
-                } else {
-                    pendingBundleIdToEnableJIT = bundleId
-                }
-            }
-            
+            handleOpenURL(url)
         }
         .onAppear() {
             viewDidAppeared = true
-            if let pendingBundleIdToEnableJIT {
-                addToRecent(bundleID: pendingBundleIdToEnableJIT) // Add to recent apps
-                startJITInBackground(with: pendingBundleIdToEnableJIT)
+            if let pendingBundleId = pendingBundleIdToEnableJIT {
+                addToRecent(bundleID: pendingBundleId)
+                startJITInBackground(with: pendingBundleId)
                 self.pendingBundleIdToEnableJIT = nil
+            }
+        }
+    }
+    
+    // Breaking up the homeContent into a computed property to help with type-checking
+    var homeContent: some View {
+        VStack(spacing: 25) {
+            Spacer()
+            
+            headerView
+            
+            mainActionButton
+            
+            // Recent Apps Section
+            if pairingFileExists && !recentBundleIDs.isEmpty {
+                recentAppsSection
+            }
+            
+            statusMessageArea
+            
+            Spacer()
+        }
+        .padding()
+    }
+    
+    var headerView: some View {
+        VStack(spacing: 5) {
+            Text("Welcome to StikJIT \(username)!")
+                .font(.system(.largeTitle, design: .rounded))
+                .fontWeight(.bold)
+            
+            Text(pairingFileExists ? "Click enable JIT to get started" : "Pick pairing file to get started")
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 40)
+    }
+    
+    var mainActionButton: some View {
+        Button(action: {
+            if pairingFileExists {
+                isShowingInstalledApps = true
+            } else {
+                isShowingPairingFilePicker = true
+            }
+        }) {
+            HStack {
+                Image(systemName: pairingFileExists ? "bolt.fill" : "doc.badge.plus")
+                    .font(.system(size: 20))
+                Text(pairingFileExists ? "Enable JIT" : "Select Pairing File")
+                    .font(.system(.title3, design: .rounded))
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(16)
+            .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    var recentAppsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent Apps")
+                .font(.system(.headline, design: .rounded))
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 15) {
+                    ForEach(recentBundleIDs, id: \.self) { bundleID in
+                        Button(action: {
+                            HapticFeedbackHelper.trigger()
+                            startJITInBackground(with: bundleID)
+                        }) {
+                            VStack(spacing: 8) {
+                                if let appName = appsViewModel.apps[bundleID] {
+                                    AppIconView(bundleID: bundleID, appName: appName, viewModel: appsViewModel)
+                                        .frame(width: 60, height: 60)
+                                } else {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.blue.opacity(0.1))
+                                        .frame(width: 60, height: 60)
+                                        .overlay(
+                                            Image(systemName: "bolt.fill")
+                                                .font(.system(size: 22))
+                                                .foregroundColor(.blue)
+                                        )
+                                }
+                                
+                                Text(appsViewModel.apps[bundleID] ?? bundleID.components(separatedBy: ".").last ?? "App")
+                                    .font(.system(size: 12, design: .rounded))
+                                    .lineLimit(1)
+                                    .frame(width: 70)
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 5)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.cardBackground.opacity(0.4))
+                .padding(.horizontal, 12)
+        )
+        .padding(.horizontal, 8)
+        .padding(.top, 5)
+    }
+    
+    var statusMessageArea: some View {
+        ZStack {
+            if isImportingFile {
+                importProgressView
+            }
+            
+            if showPairingFileMessage && pairingFileIsValid {
+                Text("✓ Pairing file successfully imported")
+                    .font(.system(.callout, design: .rounded))
+                    .foregroundColor(.green)
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 12)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(8)
+                    .transition(.opacity)
+            }
+            
+            Text(" ").opacity(0)
+        }
+        .frame(height: isImportingFile ? 60 : 30)
+    }
+    
+    var importProgressView: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("Processing pairing file...")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.secondaryText)
+                Spacer()
+                Text("\(Int(importProgress * 100))%")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.secondaryText)
+            }
+            
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.black.opacity(0.2))
+                        .frame(height: 8)
+                    
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.green)
+                        .frame(width: geometry.size.width * CGFloat(importProgress), height: 8)
+                        .animation(.linear(duration: 0.3), value: importProgress)
+                }
+            }
+            .frame(height: 8)
+        }
+        .padding(.horizontal, 40)
+    }
+    
+    private func handleFileImportResult(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            let fileManager = FileManager.default
+            let accessing = url.startAccessingSecurityScopedResource()
+            
+            if fileManager.fileExists(atPath: url.path) {
+                do {
+                    let destinationURL = URL.documentsDirectory.appendingPathComponent("pairingFile.plist")
+                    if fileManager.fileExists(atPath: destinationURL.path) {
+                        try fileManager.removeItem(at: destinationURL)
+                    }
+                    
+                    try fileManager.copyItem(at: url, to: destinationURL)
+                    print("File copied successfully!")
+                    
+                    DispatchQueue.main.async {
+                        isImportingFile = true
+                        importProgress = 0.0
+                        pairingFileExists = true
+                    }
+                    
+                    startHeartbeatInBackground()
+                    
+                    let progressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+                        DispatchQueue.main.async {
+                            if importProgress < 1.0 {
+                                importProgress += 0.25
+                            } else {
+                                timer.invalidate()
+                                isImportingFile = false
+                                pairingFileIsValid = true
+                                
+                                withAnimation {
+                                    showPairingFileMessage = true
+                                }
+                                
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                    withAnimation {
+                                        showPairingFileMessage = false
+                                    }
+                                }
+                                
+                                loadApps()
+                            }
+                        }
+                    }
+                    
+                    RunLoop.current.add(progressTimer, forMode: .common)
+                    
+                } catch {
+                    print("Error copying file: \(error)")
+                }
+            } else {
+                print("Source file does not exist.")
+            }
+            
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        case .failure(let error):
+            print("Failed to import file: \(error)")
+        }
+    }
+    
+    private func handleOpenURL(_ url: URL) {
+        print(url.path())
+        if url.host() != "enable-jit" {
+            return
+        }
+        
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        if let bundleId = components?.queryItems?.first(where: { $0.name == "bundle-id" })?.value {
+            if viewDidAppeared {
+                addToRecent(bundleID: bundleId)
+                startJITInBackground(with: bundleId)
+            } else {
+                pendingBundleIdToEnableJIT = bundleId
             }
         }
     }
@@ -335,7 +352,6 @@ struct HomeView: View {
     private func startJITInBackground(with bundleID: String) {
         isProcessing = true
         DispatchQueue.global(qos: .background).async {
-            
             JITEnableContext.shared().debugApp(withBundleID: bundleID, logger: nil)
             
             DispatchQueue.main.async {
@@ -349,6 +365,7 @@ struct HomeView: View {
 struct AppIconView: View {
     let bundleID: String
     let appName: String
+    let viewModel: InstalledAppsViewModel
     @State private var appIcon: UIImage?
     
     var body: some View {
@@ -386,7 +403,7 @@ struct AppIconView: View {
     }
     
     private func loadAppIcon() {
-        AppStoreIconFetcher.getIcon(for: bundleID) { image in
+        viewModel.loadAppIcon(for: bundleID) { image in
             if let image = image {
                 DispatchQueue.main.async {
                     withAnimation(.easeIn(duration: 0.2)) {
