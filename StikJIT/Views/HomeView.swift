@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  StikJIT
 //
-//  Created by Stephen on 3/26/25.
+//  Created by doomsboygaming on 3/28/25.
 //
 
 import SwiftUI
@@ -17,6 +17,8 @@ extension UIDocumentPickerViewController {
 struct HomeView: View {
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
+    @AppStorage("recentBundleIDs") private var recentBundleIDsString: String = ""
+    
     @State private var selectedBackgroundColor: Color = Color(hex: UserDefaults.standard.string(forKey: "customBackgroundColor") ?? "#000000") ?? Color.primaryBackground
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @AppStorage("bundleID") private var bundleID: String = ""
@@ -31,6 +33,23 @@ struct HomeView: View {
     
     @State private var viewDidAppeared = false
     @State private var pendingBundleIdToEnableJIT : String? = nil
+    @StateObject private var appsViewModel = InstalledAppsViewModel()
+    
+    var recentBundleIDs: [String] {
+        return recentBundleIDsString.split(separator: ",").map(String.init)
+    }
+    
+    func addToRecent(bundleID: String) {
+        var recent = recentBundleIDs
+        if let index = recent.firstIndex(of: bundleID) {
+            recent.remove(at: index)
+        }
+        recent.insert(bundleID, at: 0)
+        if recent.count > 5 {
+            recent = Array(recent.prefix(5))
+        }
+        recentBundleIDsString = recent.joined(separator: ",")
+    }
 
     var body: some View {
         ZStack {
@@ -75,6 +94,61 @@ struct HomeView: View {
                     .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
                 .padding(.horizontal, 20)
+                
+                // Recent Apps Section
+                if pairingFileExists && !recentBundleIDs.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Recent Apps")
+                            .font(.system(.headline, design: .rounded))
+                            .padding(.horizontal, 20)
+                            .padding(.top, 10)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 15) {
+                                ForEach(recentBundleIDs, id: \.self) { bundleID in
+                                    Button(action: {
+                                        HapticFeedbackHelper.trigger()
+                                        startJITInBackground(with: bundleID)
+                                    }) {
+                                        VStack(spacing: 8) {
+                                            // Display app icon if available, placeholder if not
+                                            if let appName = appsViewModel.apps[bundleID] {
+                                                AppIconView(bundleID: bundleID, appName: appName)
+                                                    .frame(width: 60, height: 60)
+                                            } else {
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .fill(Color.blue.opacity(0.1))
+                                                    .frame(width: 60, height: 60)
+                                                    .overlay(
+                                                        Image(systemName: "bolt.fill")
+                                                            .font(.system(size: 22))
+                                                            .foregroundColor(.blue)
+                                                    )
+                                            }
+                                            
+                                            // App name or bundle ID
+                                            Text(appsViewModel.apps[bundleID] ?? bundleID.components(separatedBy: ".").last ?? "App")
+                                                .font(.system(size: 12, design: .rounded))
+                                                .lineLimit(1)
+                                                .frame(width: 70)
+                                                .foregroundColor(.primary)
+                                        }
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 5)
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.cardBackground.opacity(0.4))
+                            .padding(.horizontal, 12)
+                    )
+                    .padding(.horizontal, 8)
+                    .padding(.top, 5)
+                }
                 
                 // Status message area - keeps layout consistent
                 ZStack {
@@ -131,6 +205,9 @@ struct HomeView: View {
         }
         .onAppear {
             checkPairingFileExists()
+            if pairingFileExists {
+                loadApps()
+            }
         }
         .onReceive(timer) { _ in
             refreshBackground()
@@ -183,6 +260,9 @@ struct HomeView: View {
                                             showPairingFileMessage = false
                                         }
                                     }
+                                    
+                                    // Load apps after pairing file is imported
+                                    loadApps()
                                 }
                             }
                         }
@@ -209,6 +289,7 @@ struct HomeView: View {
                 bundleID = selectedBundle
                 isShowingInstalledApps = false
                 HapticFeedbackHelper.trigger()
+                addToRecent(bundleID: selectedBundle) // Add to recent apps
                 startJITInBackground(with: selectedBundle)
             }
         }
@@ -221,6 +302,7 @@ struct HomeView: View {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             if let bundleId = components?.queryItems?.first(where: { $0.name == "bundle-id" })?.value {
                 if viewDidAppeared {
+                    addToRecent(bundleID: bundleId) // Add to recent apps
                     startJITInBackground(with: bundleId)
                 } else {
                     pendingBundleIdToEnableJIT = bundleId
@@ -231,13 +313,16 @@ struct HomeView: View {
         .onAppear() {
             viewDidAppeared = true
             if let pendingBundleIdToEnableJIT {
+                addToRecent(bundleID: pendingBundleIdToEnableJIT) // Add to recent apps
                 startJITInBackground(with: pendingBundleIdToEnableJIT)
                 self.pendingBundleIdToEnableJIT = nil
             }
         }
     }
     
-
+    private func loadApps() {
+        appsViewModel.loadApps()
+    }
     
     private func checkPairingFileExists() {
         pairingFileExists = FileManager.default.fileExists(atPath: URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path)
@@ -260,26 +345,55 @@ struct HomeView: View {
     }
 }
 
-class InstalledAppsViewModel: ObservableObject {
-    @Published var apps: [String: String] = [:]
+// Helper view to display app icons in recent apps list
+struct AppIconView: View {
+    let bundleID: String
+    let appName: String
+    @State private var appIcon: UIImage?
     
-    init() {
-        loadApps()
-    }
-    
-    func loadApps() {
-        do {
-            self.apps = try JITEnableContext.shared().getAppList()
-        } catch {
-            print(error)
-            self.apps = [:]
+    var body: some View {
+        ZStack {
+            if let image = appIcon {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+            } else {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(UIColor.systemGray5))
+                    .overlay(
+                        Image(systemName: "app")
+                            .font(.system(size: 26))
+                            .foregroundColor(.gray)
+                    )
+                    .onAppear {
+                        loadAppIcon()
+                    }
+            }
+            
+            // JIT indicator badge
+            Circle()
+                .fill(Color.blue)
+                .frame(width: 20, height: 20)
+                .overlay(
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white)
+                )
+                .position(x: 50, y: 10)
         }
-
     }
-}
-
-
-
-#Preview {
-    HomeView()
+    
+    private func loadAppIcon() {
+        AppStoreIconFetcher.getIcon(for: bundleID) { image in
+            if let image = image {
+                DispatchQueue.main.async {
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        self.appIcon = image
+                    }
+                }
+            }
+        }
+    }
 }
