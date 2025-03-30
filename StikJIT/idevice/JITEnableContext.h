@@ -12,6 +12,12 @@ typedef void (^HeartbeatCompletionHandler)(int result, NSString *message);
 typedef void (^LogFuncC)(const char* message, ...);
 typedef void (^LogFunc)(NSString *message);
 
+// Make sure this enum name doesn't conflict with Swift's enum
+typedef NS_ENUM(NSInteger, ConnectionMode_objc) {
+    ConnectionMode_objc_USB = 0,
+    ConnectionMode_objc_TCP = 1
+};
+
 @interface JITEnableContext : NSObject
 + (instancetype)shared;
 - (IdevicePairingFile*)getPairingFileWithError:(NSError**)error;
@@ -19,6 +25,6 @@ typedef void (^LogFunc)(NSString *message);
 - (void)debugAppWithBundleID:(NSString*)bundleID logger:(LogFunc)logger;
 - (NSDictionary<NSString*, NSString*>*)getAppListWithError:(NSError**)error;
 
-// Added method to set the connection mode
-- (void)setConnectionMode:(ConnectionMode)mode;
+// Updated method to set the connection mode using just an integer value
+- (void)setConnectionMode:(int)mode;
 @end
