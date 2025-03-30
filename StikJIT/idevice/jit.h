@@ -13,4 +13,7 @@
 typedef void (^LogFuncC)(const char* message, ...);
 int debug_app(TcpProviderHandle* provider, const char *bundle_id, LogFuncC logger);
 
+// Add function for USB debugging
+int debug_app_usb(UsbmuxdAddrHandle* addr, const char *bundle_id, LogFuncC logger);
+
 #endif /* JIT_H */
