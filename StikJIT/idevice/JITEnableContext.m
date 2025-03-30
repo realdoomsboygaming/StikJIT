@@ -13,12 +13,15 @@
 #include "applist.h"
 
 #include "JITEnableContext.h"
+#import "StikJIT-Swift.h"  // This imports the Swift files into Objective-C
 
 JITEnableContext* sharedJITContext = nil;
 
 @implementation JITEnableContext {
     int heartbeatSessionId;
     TcpProviderHandle* provider;
+    UsbmuxdProviderHandle* usbProvider;
+    ConnectionMode connectionMode;
 }
 
 + (instancetype)shared {
@@ -26,6 +29,18 @@ JITEnableContext* sharedJITContext = nil;
         sharedJITContext = [[JITEnableContext alloc] init];
     }
     return sharedJITContext;
+}
+
+- (id)init {
+    if (self = [super init]) {
+        // Default to USB connection mode
+        connectionMode = ConnectionModeUSB;
+    }
+    return self;
+}
+
+- (void)setConnectionMode:(ConnectionMode)mode {
+    connectionMode = mode;
 }
 
 - (NSError*)errorWithStr:(NSString*)str code:(int)code {
@@ -40,6 +55,17 @@ JITEnableContext* sharedJITContext = nil;
          
         NSString *message = [[NSString alloc] initWithFormat:formatStr arguments:args];
         NSLog(@"%@", message);
+        
+        // Add to log manager
+        if ([message containsString:@"ERROR"] || [message containsString:@"Error"]) {
+            [[LogManagerBridge shared] addErrorLog:message];
+        } else if ([message containsString:@"WARNING"] || [message containsString:@"Warning"]) {
+            [[LogManagerBridge shared] addWarningLog:message];
+        } else if ([message containsString:@"DEBUG"]) {
+            [[LogManagerBridge shared] addDebugLog:message];
+        } else {
+            [[LogManagerBridge shared] addInfoLog:message];
+        }
         
         if(logger) {
             logger(message);
@@ -82,36 +108,83 @@ JITEnableContext* sharedJITContext = nil;
     self->heartbeatSessionId = arc4random();
     startHeartbeat(pairingFile, &(self->provider), &(self->heartbeatSessionId), ^(int result, const char *message) {
         completionHandler(result,[NSString stringWithCString:message encoding:NSASCIIStringEncoding]);
-    }, [self createCLogger:logger]);
-}
-- (void)debugAppWithBundleID:(NSString*)bundleID logger:(LogFunc)logger {
-    if(!provider) {
-        if(logger) {
-            logger(@"Provider not initialized!");
-        }
-        NSLog(@"Provider not initialized!");
-        return;
-    }
-    
-    debug_app(provider, [bundleID UTF8String], [self createCLogger:logger]);
+    }, [self createCLogger:logger], connectionMode);
 }
 
+- (void)debugAppWithBundleID:(NSString*)bundleID logger:(LogFunc)logger {
+    if (connectionMode == ConnectionModeUSB) {
+        // USB mode - create a direct USB connection for debugging
+        logger(@"Setting up USB debugging connection");
+        
+        // Create a USB connection for debugging
+        UsbmuxdAddrHandle *usb_addr = NULL;
+        IdeviceErrorCode err = idevice_usbmuxd_unix_addr_new("/var/run/usbmuxd", &usb_addr);
+        if (err != IdeviceSuccess) {
+            logger([NSString stringWithFormat:@"Failed to create usbmuxd address: %d", err]);
+            return;
+        }
+        
+        // The actual debugging now uses direct USB
+        debug_app_usb(usb_addr, [bundleID UTF8String], [self createCLogger:logger]);
+        
+        // Clean up
+        idevice_usbmuxd_addr_free(usb_addr);
+    } else {
+        // TCP mode - use the existing provider
+        if(!provider) {
+            if(logger) {
+                logger(@"TCP Provider not initialized!");
+            }
+            NSLog(@"TCP Provider not initialized!");
+            return;
+        }
+        
+        debug_app(provider, [bundleID UTF8String], [self createCLogger:logger]);
+    }
+}
 
 // apps may have different name, so we must use BnudleId as key. [bundleId:name]
 - (NSDictionary<NSString*, NSString*>*)getAppListWithError:(NSError**)error {
-    if(!provider) {
-        NSLog(@"Provider not initialized!");
-        *error = [self errorWithStr:@"Provider not initialized!" code:-1];
-        return nil;
-    }
-    
-    NSString* errorStr = nil;
-    NSDictionary<NSString*, NSString*>* ans = list_installed_apps(provider, &errorStr);
-    if(errorStr){
-        *error = [self errorWithStr:errorStr code:-17];
-        return nil;
+    if (connectionMode == ConnectionModeUSB) {
+        // USB mode - create a direct USB connection for app listing
+        NSLog(@"Setting up USB connection for app listing");
+        
+        UsbmuxdAddrHandle *usb_addr = NULL;
+        IdeviceErrorCode err = idevice_usbmuxd_unix_addr_new("/var/run/usbmuxd", &usb_addr);
+        if (err != IdeviceSuccess) {
+            NSString *errorMsg = [NSString stringWithFormat:@"Failed to create usbmuxd address: %d", err];
+            *error = [self errorWithStr:errorMsg code:err];
+            return nil;
+        }
+        
+        NSString* errorStr = nil;
+        NSDictionary<NSString*, NSString*>* ans = list_installed_apps_usb(usb_addr, &errorStr);
+        
+        // Clean up
+        idevice_usbmuxd_addr_free(usb_addr);
+        
+        if(errorStr){
+            *error = [self errorWithStr:errorStr code:-17];
+            return nil;
+        } else {
+            return ans;
+        }
     } else {
-        return ans;
+        // TCP mode - use the existing provider
+        if(!provider) {
+            NSLog(@"TCP Provider not initialized!");
+            *error = [self errorWithStr:@"TCP Provider not initialized!" code:-1];
+            return nil;
+        }
+        
+        NSString* errorStr = nil;
+        NSDictionary<NSString*, NSString*>* ans = list_installed_apps(provider, &errorStr);
+        if(errorStr){
+            *error = [self errorWithStr:errorStr code:-17];
+            return nil;
+        } else {
+            return ans;
+        }
     }
 }
 
