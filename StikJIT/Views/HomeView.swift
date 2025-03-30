@@ -276,7 +276,8 @@ struct HomeView: View {
             InstalledAppsListView { selectedBundle in
                 bundleID = selectedBundle
                 isShowingInstalledApps = false
-                HapticFeedbackHelper.trigger()
+                HapticFeedbackHelper.trigger() // Change this line to:
+                HapticFeedbackUtil.trigger()   // Use the new struct name
                 startJITInBackground(with: selectedBundle)
             }
         }
