@@ -13,6 +13,12 @@
 typedef void (^HeartbeatCompletionHandlerC)(int result, const char *message);
 typedef void (^LogFuncC)(const char* message, ...);
 
-void startHeartbeat(IdevicePairingFile* pairintFile, TcpProviderHandle** provider, int* heartbeatSessionId, HeartbeatCompletionHandlerC completion, LogFuncC logger);
+// Add connection mode enum to support both USB and TCP
+typedef enum {
+    ConnectionModeUSB = 0,
+    ConnectionModeTCP = 1
+} ConnectionMode;
+
+void startHeartbeat(IdevicePairingFile* pairingFile, TcpProviderHandle** provider, int* heartbeatSessionId, HeartbeatCompletionHandlerC completion, LogFuncC logger, ConnectionMode mode);
 
 #endif /* HEARTBEAT_H */
