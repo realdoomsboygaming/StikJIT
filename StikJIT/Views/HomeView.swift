@@ -194,8 +194,8 @@ struct HomeView: View {
             
             // Initialize connection mode from user defaults when the app starts
             // Fixed: Use direct conversion to Objective-C ConnectionMode
-            let mode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
-            JITEnableContext.shared().setConnectionMode(mode)
+            let swiftMode = ConnectionMode.fromInt(connectionMode)
+            JITEnableContext.shared().setConnectionModeSwift(swiftMode)
             
             // Add to logs
             LogManager.shared.addInfoLog("App started in \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
