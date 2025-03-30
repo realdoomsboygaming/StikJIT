@@ -8,7 +8,7 @@ struct InstalledAppsListView: View {
     var onSelectApp: (String) -> Void
     
     var filteredApps: [(key: String, value: String)] {
-        let sorted = viewModel.apps.sorted(by: { $0.value < $1.value }) // Sort by app name
+        let sorted = viewModel.apps.sorted(by: { $0.value < $1.value }) // Sort by app name for better UX
         if searchText.isEmpty {
             return sorted
         }
@@ -19,24 +19,18 @@ struct InstalledAppsListView: View {
     }
     
     var body: some View {
-        listContent
-            .onAppear {
-                // Refresh the app list every time the view appears
-                viewModel.loadApps()
-            }
-    }
-    
-    var listContent: some View {
         NavigationView {
             VStack {
                 searchBar
                 
-                if viewModel.isLoading {
-                    loadingView
-                } else if let errorMessage = viewModel.errorMessage {
-                    errorView(message: errorMessage)
-                } else if viewModel.apps.isEmpty {
-                    emptyStateView
+                if viewModel.apps.isEmpty {
+                    VStack(spacing: 20) {
+                        ProgressView()
+                            .padding()
+                        Text("Loading apps...")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     appList
                 }
@@ -58,6 +52,9 @@ struct InstalledAppsListView: View {
                         .foregroundColor(.blue)
                 }
             )
+        }
+        .onAppear {
+            viewModel.loadApps()
         }
     }
     
@@ -85,81 +82,6 @@ struct InstalledAppsListView: View {
         .cornerRadius(10)
         .padding(.horizontal)
         .padding(.top, 8)
-    }
-    
-    var loadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.5)
-                .padding()
-            
-            Text("Loading Apps...")
-                .font(.headline)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    func errorView(message: String) -> some View {
-        VStack(spacing: 20) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
-                .foregroundColor(.orange)
-                .padding()
-            
-            Text(message)
-                .font(.headline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            
-            Button(action: {
-                viewModel.loadApps()
-            }) {
-                Text("Try Again")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 24)
-                    .background(Color.blue)
-                    .cornerRadius(10)
-            }
-            .padding(.top, 16)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "app.badge.checkmark")
-                .font(.system(size: 50))
-                .foregroundColor(.gray)
-                .padding()
-            
-            Text("No JIT-Compatible Apps Found")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            
-            Text("Make sure your device is connected and has development apps installed.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            
-            Button(action: {
-                viewModel.loadApps()
-            }) {
-                Text("Refresh")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 24)
-                    .background(Color.blue)
-                    .cornerRadius(10)
-            }
-            .padding(.top, 16)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     var appList: some View {
@@ -209,12 +131,6 @@ struct InstalledAppsListView: View {
                             }
                             
                             Spacer()
-                            
-                            // Show indicator for JIT-compatible apps
-                            Image(systemName: "bolt.fill")
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16))
-                                .opacity(0.8)
                         }
                         .padding(.vertical, 12)
                         .padding(.horizontal, 20)
