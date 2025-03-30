@@ -193,8 +193,8 @@ struct HomeView: View {
             checkPairingFileExists()
             
             // Initialize connection mode from user defaults when the app starts
-            // MODIFIED: Use the extension method for type safety
-            let swiftMode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
+            // FIXED: Use the ConnectionModeSwift enum now
+            let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
             JITEnableContext.shared().setConnectionModeSwift(swiftMode)
             
             // Add to logs
@@ -276,7 +276,6 @@ struct HomeView: View {
             InstalledAppsListView { selectedBundle in
                 bundleID = selectedBundle
                 isShowingInstalledApps = false
-                HapticFeedbackHelper.trigger() // Change this line to:
                 HapticFeedbackUtil.trigger()   // Use the new struct name
                 startJITInBackground(with: selectedBundle)
             }
@@ -335,33 +334,4 @@ struct HomeView: View {
             }
         }
     }
-}
-
-// ViewModel for InstalledAppsListView
-class InstalledAppsViewModel: ObservableObject {
-    @Published var apps: [String: String] = [:]
-    @Published var appIcons: [String: UIImage] = [:]
-    
-    init() {
-        loadApps()
-    }
-    
-    func loadApps() {
-        do {
-            self.apps = try JITEnableContext.shared().getAppList()
-        } catch {
-            print(error)
-            self.apps = [:]
-        }
-    }
-    
-    func loadAppIcon(for bundleID: String, completion: @escaping (UIImage?) -> Void) {
-        // Implement app icon loading logic here
-        // For now, just complete with nil
-        completion(nil)
-    }
-}
-
-#Preview {
-    HomeView()
 }
