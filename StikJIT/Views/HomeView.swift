@@ -336,16 +336,39 @@ struct HomeView: View {
 // ViewModel for InstalledAppsListView
 class InstalledAppsViewModel: ObservableObject {
     @Published var apps: [String: String] = [:]
+    @Published var isLoading: Bool = false
     
     init() {
         loadApps()
     }
     
     func loadApps() {
+        isLoading = true
+        
+        // Log that we're trying to load apps
+        LogManager.shared.addInfoLog("Loading installed apps...")
+        
         // Get apps list from the shared context
-        if let appList = JITEnableContext.shared().getAppsSimple() {
-            DispatchQueue.main.async {
-                self.apps = appList as? [String: String] ?? [:]
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let appList = JITEnableContext.shared().getAppsSimple() as? [String: String] {
+                DispatchQueue.main.async {
+                    self.apps = appList
+                    self.isLoading = false
+                    
+                    // Log the results
+                    LogManager.shared.addInfoLog("Found \(appList.count) apps with get-task-allow entitlement")
+                    
+                    // Log some details if debugging
+                    if !appList.isEmpty {
+                        let sampleApps = Array(appList.keys.prefix(3)).joined(separator: ", ")
+                        LogManager.shared.addDebugLog("Sample apps: \(sampleApps)")
+                    }
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    LogManager.shared.addErrorLog("Failed to load apps list")
+                }
             }
         }
     }
