@@ -14,10 +14,17 @@ extension JITEnableContext {
         self.setConnectionMode(Int32(mode.rawValue))
     }
     
-    // Non-@objc version for Swift use
+    // Create a completely different method that doesn't try to use getAppListWithError
     public func getAppList() -> [String: String]? {
-        var error: NSError?
-        // Use the correct method name based on JITEnableContext.h
-        return self.getAppListWithError(&error)
+        // Access the variable directly instead of using the method
+        let nsError = NSError(domain: "StikJIT", code: -1, userInfo: nil)
+        var error: NSError? = nsError
+        
+        // Call the Objective-C API directly
+        if let apps = list_installed_apps_usb(nil, &error) {
+            return apps as? [String: String]
+        }
+        
+        return [:]
     }
 }
