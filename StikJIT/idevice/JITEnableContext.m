@@ -195,4 +195,47 @@ JITEnableContext* sharedJITContext = nil;
     }
 }
 
+// Add this new method to the implementation
+- (NSDictionary<NSString*, NSString*>*)getAppsSimple {
+    if (connectionMode == ConnectionModeUSB) {
+        // USB mode - create a direct USB connection for app listing
+        NSLog(@"Setting up USB connection for app listing");
+        
+        UsbmuxdAddrHandle *usb_addr = NULL;
+        IdeviceErrorCode err = idevice_usbmuxd_unix_addr_new("/var/run/usbmuxd", &usb_addr);
+        if (err != IdeviceSuccess) {
+            NSLog(@"Failed to create usbmuxd address: %d", err);
+            return @{};
+        }
+        
+        NSString* errorStr = nil;
+        NSDictionary<NSString*, NSString*>* ans = list_installed_apps_usb(usb_addr, &errorStr);
+        
+        // Clean up
+        idevice_usbmuxd_addr_free(usb_addr);
+        
+        if(errorStr){
+            NSLog(@"Error getting app list: %@", errorStr);
+            return @{};
+        } else {
+            return ans;
+        }
+    } else {
+        // TCP mode - use the existing provider
+        if(!provider) {
+            NSLog(@"TCP Provider not initialized!");
+            return @{};
+        }
+        
+        NSString* errorStr = nil;
+        NSDictionary<NSString*, NSString*>* ans = list_installed_apps(provider, &errorStr);
+        if(errorStr){
+            NSLog(@"Error getting app list: %@", errorStr);
+            return @{};
+        } else {
+            return ans;
+        }
+    }
+}
+
 @end
