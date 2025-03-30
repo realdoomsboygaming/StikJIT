@@ -27,4 +27,7 @@ typedef NS_ENUM(NSInteger, ConnectionMode_objc) {
 
 // Updated method to set the connection mode using just an integer value
 - (void)setConnectionMode:(int)mode;
+
+// New simple method that handles its own error handling
+- (NSDictionary<NSString*, NSString*>*)getAppsSimple;
 @end
