@@ -6,6 +6,7 @@
 //
 @import Foundation;
 #include "idevice.h"
+#include "heartbeat.h"
 
 typedef void (^HeartbeatCompletionHandler)(int result, NSString *message);
 typedef void (^LogFuncC)(const char* message, ...);
@@ -17,4 +18,7 @@ typedef void (^LogFunc)(NSString *message);
 - (void)startHeartbeatWithCompletionHandler:(HeartbeatCompletionHandler)completionHandler logger:(LogFunc)logger;
 - (void)debugAppWithBundleID:(NSString*)bundleID logger:(LogFunc)logger;
 - (NSDictionary<NSString*, NSString*>*)getAppListWithError:(NSError**)error;
+
+// Added method to set the connection mode
+- (void)setConnectionMode:(ConnectionMode)mode;
 @end
