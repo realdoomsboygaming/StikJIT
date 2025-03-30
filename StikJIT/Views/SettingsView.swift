@@ -830,7 +830,7 @@ struct SettingsView: View {
         }
         .onAppear {
             loadCustomBackgroundColor()
-            let swiftMode: JITEnableContextSwiftBridge.ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
+            let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
             JITEnableContext.shared().setConnectionModeSwift(swiftMode)
         }
     }
