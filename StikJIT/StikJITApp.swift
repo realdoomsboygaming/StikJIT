@@ -185,8 +185,9 @@ struct StikJITApp: App {
     init() {
         // Initialize connection mode from user defaults on app launch
         let connectionMode = UserDefaults.standard.integer(forKey: "connectionMode")
-        let mode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
+        let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
         JITEnableContext.shared().setConnectionModeSwift(swiftMode)
+
 
         
         // Add to logs
