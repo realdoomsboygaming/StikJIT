@@ -830,9 +830,6 @@ struct SettingsView: View {
         }
         .onAppear {
             loadCustomBackgroundColor()
-            
-            // Set the connection mode in JITEnableContext when the view appears
-            // FIXED: Use the ConnectionModeSwift enum now
             let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
             JITEnableContext.shared().setConnectionModeSwift(swiftMode)
         }
