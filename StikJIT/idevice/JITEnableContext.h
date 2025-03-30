@@ -4,6 +4,9 @@
 //
 //  Created by s s on 2025/3/28.
 //
+#ifndef JITENABLECONTEXT_H
+#define JITENABLECONTEXT_H
+
 @import Foundation;
 #include "idevice.h"
 #include "heartbeat.h"
@@ -31,3 +34,5 @@ typedef NS_ENUM(NSInteger, ConnectionMode_objc) {
 // New simple method that handles its own error handling
 - (NSDictionary<NSString*, NSString*>*)getAppsSimple;
 @end
+
+#endif /* JITENABLECONTEXT_H */
