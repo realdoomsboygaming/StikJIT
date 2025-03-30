@@ -10,8 +10,7 @@ import Foundation
 // Extend JITEnableContext to add a Swift-friendly method
 extension JITEnableContext {
     @objc public func setConnectionModeSwift(_ mode: ConnectionModeSwift) {
-        // The Objective-C ConnectionMode enum has the same raw values
-        // Just pass the raw value to the Objective-C method
-        self.setConnectionMode(Int32(mode.rawValue))
+        // The correct way to call the Objective-C method
+        self.setConnectionMode(mode.rawValue == 0 ? 0 : 1)
     }
 }
