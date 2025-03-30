@@ -6,14 +6,7 @@
 
 import Foundation
 
-// This enum mirrors the Objective-C ConnectionMode enum defined in heartbeat.h
-// to provide type-safe handling in Swift
-enum ConnectionMode: Int {
-    case USB = 0
-    case TCP = 1
-}
-
-// Extension to provide conversion to Objective-C ConnectionMode
+// Instead of redefining ConnectionMode, just extend the existing one
 extension ConnectionMode {
     // Convert Swift ConnectionMode to Objective-C ConnectionMode
     var toObjC: __ObjC.ConnectionMode {
@@ -23,11 +16,6 @@ extension ConnectionMode {
         case .TCP:
             return .TCP
         }
-    }
-    
-    // Create Swift ConnectionMode from Int (useful for @AppStorage)
-    static func fromInt(_ value: Int) -> ConnectionMode {
-        return value == 0 ? .USB : .TCP
     }
 }
 
