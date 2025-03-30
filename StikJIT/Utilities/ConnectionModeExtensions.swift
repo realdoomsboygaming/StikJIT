@@ -1,28 +1,16 @@
-// ConnectionModeExtensions.swift
-// StikJIT
-//
-// Created on 3/30/25.
-//
-
 import Foundation
 
-// Instead of redefining ConnectionMode, just extend the existing one
-extension ConnectionMode {
-    // Convert Swift ConnectionMode to Objective-C ConnectionMode
-    var toObjC: __ObjC.ConnectionMode {
-        switch self {
-        case .USB:
-            return .USB
-        case .TCP:
-            return .TCP
-        }
-    }
+// Define the Swift-side enum to match the Objective-C side
+enum ConnectionMode: Int {
+    case USB = 0
+    case TCP = 1
 }
 
-// Extension to modify the places that use this conversion
+// Extension to JITEnableContext for type-safe calls from Swift
 extension JITEnableContext {
-    // Helper method to simplify conversion
+    // Type-safe wrapper method for setting connection mode
     func setConnectionModeSwift(_ mode: ConnectionMode) {
-        self.setConnectionMode(mode.toObjC)
+        // Convert Swift enum to the raw Int value, which matches the Objective-C enum values
+        self.setConnectionMode(ConnectionMode_objc(rawValue: mode.rawValue)!)
     }
 }
