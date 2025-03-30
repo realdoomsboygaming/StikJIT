@@ -191,9 +191,6 @@ struct HomeView: View {
         }
         .onAppear {
             checkPairingFileExists()
-            
-            // Initialize connection mode from user defaults when the app starts
-            // FIXED: Use the ConnectionModeSwift enum now
             let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
             JITEnableContext.shared().setConnectionModeSwift(swiftMode)
             
@@ -347,15 +344,14 @@ class InstalledAppsViewModel: ObservableObject {
     
     func loadApps() {
         do {
-            // Use getAppListWithError: method instead
-            var error: NSError?
-            if let appList = JITEnableContext.shared().getAppList(withError: &error) {
+            // Use the new Swift-friendly method
+            if let appList = JITEnableContext.shared().getAppList() {
                 self.apps = appList
-            } else if let error = error {
-                print("Error loading apps: \(error)")
+            } else {
+                print("Error loading apps")
                 self.apps = [:]
             }
-        } catch {
+         } catch {
             print("Error loading apps: \(error)")
             self.apps = [:]
         }
