@@ -39,8 +39,8 @@ JITEnableContext* sharedJITContext = nil;
     return self;
 }
 
-- (void)setConnectionMode:(ConnectionMode)mode {
-    connectionMode = mode;
+- (void)setConnectionMode:(int)mode {
+    connectionMode = (mode == 0) ? ConnectionModeUSB : ConnectionModeTCP;
 }
 
 - (NSError*)errorWithStr:(NSString*)str code:(int)code {
