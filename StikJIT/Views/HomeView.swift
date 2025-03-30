@@ -336,63 +336,21 @@ struct HomeView: View {
 // ViewModel for InstalledAppsListView
 class InstalledAppsViewModel: ObservableObject {
     @Published var apps: [String: String] = [:]
-    @Published var appIcons: [String: UIImage] = [:]
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String?
     
     init() {
         loadApps()
     }
     
     func loadApps() {
-        isLoading = true
-        errorMessage = nil
-        
-        // Log the loading attempt
-        LogManager.shared.addInfoLog("Attempting to load installed apps list")
-        
-        // Use the simple method that doesn't require error handling
+        // Get apps list from the shared context
         if let appList = JITEnableContext.shared().getAppsSimple() {
             DispatchQueue.main.async {
                 self.apps = appList as? [String: String] ?? [:]
-                self.isLoading = false
-                
-                // Log the result
-                LogManager.shared.addInfoLog("Found \(self.apps.count) apps")
-                
-                // If no apps were found, set an error message
-                if self.apps.isEmpty {
-                    self.errorMessage = "No apps found. Make sure your device is connected and properly paired."
-                }
-            }
-        } else {
-            DispatchQueue.main.async {
-                self.isLoading = false
-                self.apps = [:]
-                self.errorMessage = "Failed to get apps list. Check your connection and pairing file."
-                LogManager.shared.addErrorLog("Failed to load apps list")
-            }
-        }
-    }
-    
-    func loadAppIcon(for bundleID: String, completion: @escaping (UIImage?) -> Void) {
-        // Check if we already have the icon cached
-        if let cachedIcon = appIcons[bundleID] {
-            completion(cachedIcon)
-            return
-        }
-        
-        // Try to get the icon from the App Store
-        AppStoreIconFetcher.getIcon(for: bundleID) { [weak self] image in
-            DispatchQueue.main.async {
-                if let image = image {
-                    self?.appIcons[bundleID] = image
-                }
-                completion(image)
             }
         }
     }
 }
+
 
 #Preview {
     HomeView()
