@@ -413,8 +413,8 @@ struct SettingsView: View {
                                 .pickerStyle(SegmentedPickerStyle())
                                 .onChange(of: connectionMode) { newValue in
                                     // Update the JITEnableContext when mode changes
-                                    // MODIFIED: Use the extension method for type safety
-                                    let swiftMode: ConnectionMode = newValue == 0 ? .USB : .TCP
+                                    // FIXED: Use the ConnectionModeSwift enum now
+                                    let swiftMode: ConnectionModeSwift = newValue == 0 ? .USB : .TCP
                                     JITEnableContext.shared().setConnectionModeSwift(swiftMode)
                                     
                                     // Show confirmation alert when changing modes
@@ -832,8 +832,8 @@ struct SettingsView: View {
             loadCustomBackgroundColor()
             
             // Set the connection mode in JITEnableContext when the view appears
-            // MODIFIED: Use the extension method for type safety
-            let swiftMode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
+            // FIXED: Use the ConnectionModeSwift enum now
+            let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
             JITEnableContext.shared().setConnectionModeSwift(swiftMode)
         }
     }
