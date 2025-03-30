@@ -193,7 +193,9 @@ struct HomeView: View {
             checkPairingFileExists()
             
             // Initialize connection mode from user defaults when the app starts
-            JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: Int32(connectionMode)) ?? .USB)
+            // Fixed: Use direct conversion to Objective-C ConnectionMode
+            let mode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
+            JITEnableContext.shared().setConnectionMode(mode)
             
             // Add to logs
             LogManager.shared.addInfoLog("App started in \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
