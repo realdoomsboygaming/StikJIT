@@ -110,22 +110,18 @@ func isMounted() -> Bool {
 
 // Helper to start heartbeat in background
 func startHeartbeatInBackground() {
-    // Start the heartbeat process in the background
-    DispatchQueue.global(qos: .background).async {
-        JITEnableContext.shared().startHeartbeatWithCompletionHandler({ result, message in
-            DispatchQueue.main.async {
-                if result == 0 {
-                    LogManager.shared.addInfoLog("Heartbeat started successfully: \(message)")
-                } else {
-                    LogManager.shared.addErrorLog("Failed to start heartbeat: \(message)")
-                }
-            }
-        }, logger: { message in
-            if let message = message {
-                LogManager.shared.addInfoLog(message)
-            }
-        })
-    }
+    // Fixed: Use updated method name with Swift parameter syntax
+    JITEnableContext.shared().startHeartbeat(completionHandler: { result, message in
+        if result == 0 {
+            LogManager.shared.addInfoLog("Heartbeat started successfully: \(message ?? "")")
+        } else {
+            LogManager.shared.addErrorLog("Failed to start heartbeat: \(message ?? "")")
+        }
+    }, logger: { message in
+        if let message = message {
+            LogManager.shared.addInfoLog(message)
+        }
+    })
 }
 
 // Helper for showing alerts
@@ -189,7 +185,9 @@ struct StikJITApp: App {
     init() {
         // Initialize connection mode from user defaults on app launch
         let connectionMode = UserDefaults.standard.integer(forKey: "connectionMode")
-        JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: connectionMode) ?? .USB)
+        let mode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
+        JITEnableContext.shared().setConnectionMode(mode)
+
         
         // Add to logs
         LogManager.shared.addInfoLog("App started in \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
