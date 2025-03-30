@@ -14,94 +14,6 @@
 
 #include "applist.h"
 
-// New function to list apps over USB with simpler filtering
-NSDictionary<NSString*, NSString*>* list_installed_apps_usb(UsbmuxdAddrHandle* addr, NSString** error) {
-    IdeviceErrorCode err = IdeviceSuccess;
-    
-    // Create USB provider
-    UsbmuxdProviderHandle *provider = NULL;
-    err = usbmuxd_provider_new(addr, 1, "", 0, "StikJIT", &provider);
-    if (err != IdeviceSuccess) {
-        *error = @"Failed to create USB provider";
-        return nil;
-    }
-
-    // Connect to installation proxy over USB
-    InstallationProxyClientHandle *client = NULL;
-    err = installation_proxy_connect_usbmuxd(provider, &client);
-    if (err != IdeviceSuccess) {
-        usbmuxd_provider_free(provider);
-        *error = @"Failed to connect to installation proxy over USB";
-        return nil;
-    }
-
-    void *apps = NULL;
-    size_t apps_len = 0;
-    
-    // Get all User applications
-    err = installation_proxy_get_apps(client, "User", NULL, 0, &apps, &apps_len);
-    if (err != IdeviceSuccess) {
-        installation_proxy_client_free(client);
-        usbmuxd_provider_free(provider);
-        *error = @"Failed to get apps over USB";
-        return nil;
-    }
-
-    plist_t *app_list = (plist_t *)apps;
-    
-    NSMutableDictionary<NSString*, NSString*>* ans = [[NSMutableDictionary alloc] init];
-    
-    for (size_t i = 0; i < apps_len; i++) {
-        plist_t app = app_list[i];
-        
-        // Get the bundle identifier
-        plist_t bundle_id_node = plist_dict_get_item(app, "CFBundleIdentifier");
-        if (bundle_id_node) {
-            char *bundle_id = NULL;
-            plist_get_string_val(bundle_id_node, &bundle_id);
-            
-            // Skip if bundle ID is empty
-            if (bundle_id == NULL || strlen(bundle_id) == 0) {
-                free(bundle_id);
-                continue;
-            }
-            
-            // Get the app name
-            plist_t app_name_node = plist_dict_get_item(app, "CFBundleName");
-            char *app_name = NULL;
-            if (app_name_node) {
-                plist_get_string_val(app_name_node, &app_name);
-            } else {
-                // If CFBundleName is missing, try CFBundleDisplayName
-                plist_t display_name_node = plist_dict_get_item(app, "CFBundleDisplayName");
-                if (display_name_node) {
-                    plist_get_string_val(display_name_node, &app_name);
-                }
-                
-                // If still no name, use the bundle ID
-                if (app_name == NULL) {
-                    app_name = strdup(bundle_id);
-                }
-            }
-
-            NSString *bundleIDStr = [NSString stringWithCString:bundle_id encoding:NSASCIIStringEncoding];
-            NSString *appNameStr = [NSString stringWithCString:app_name encoding:NSASCIIStringEncoding];
-            
-            // Add all apps to the dictionary
-            ans[bundleIDStr] = appNameStr;
-            
-            free(bundle_id);
-            free(app_name);
-        }
-    }
-    
-    installation_proxy_client_free(client);
-    usbmuxd_provider_free(provider);
-    
-    return ans;
-}
-
-// Original function updated with similar simpler approach
 NSDictionary<NSString*, NSString*>* list_installed_apps(TcpProviderHandle* provider, NSString** error) {
     IdeviceErrorCode err = IdeviceSuccess;
 
@@ -127,49 +39,48 @@ NSDictionary<NSString*, NSString*>* list_installed_apps(TcpProviderHandle* provi
     
     for (size_t i = 0; i < apps_len; i++) {
         plist_t app = app_list[i];
-        
-        // Get the bundle identifier
-        plist_t bundle_id_node = plist_dict_get_item(app, "CFBundleIdentifier");
-        if (bundle_id_node) {
-            char *bundle_id = NULL;
-            plist_get_string_val(bundle_id_node, &bundle_id);
-            
-            // Skip if bundle ID is empty
-            if (bundle_id == NULL || strlen(bundle_id) == 0) {
-                free(bundle_id);
-                continue;
-            }
-            
-            // Get the app name
-            plist_t app_name_node = plist_dict_get_item(app, "CFBundleName");
-            char *app_name = NULL;
-            if (app_name_node) {
-                plist_get_string_val(app_name_node, &app_name);
-            } else {
-                // If CFBundleName is missing, try CFBundleDisplayName
-                plist_t display_name_node = plist_dict_get_item(app, "CFBundleDisplayName");
-                if (display_name_node) {
-                    plist_get_string_val(display_name_node, &app_name);
-                }
-                
-                // If still no name, use the bundle ID
-                if (app_name == NULL) {
-                    app_name = strdup(bundle_id);
-                }
-            }
+        // Check if the app has an "Entitlements" dictionary.
+        plist_t entitlements = plist_dict_get_item(app, "Entitlements");
+        if (entitlements) {
+            // Look for the "get-task-allow" key.
+            plist_t taskAllowNode = plist_dict_get_item(entitlements, "get-task-allow");
+            if (taskAllowNode) {
+                uint8_t isAllowed = 0;
+                plist_get_bool_val(taskAllowNode, &isAllowed);
+                if (isAllowed) {
+                    // Retrieve the bundle identifier if the entitlement is true.
+                    plist_t bundle_id_node = plist_dict_get_item(app, "CFBundleIdentifier");
+                    if (bundle_id_node) {
+                        char *bundle_id = NULL;
+                        plist_get_string_val(bundle_id_node, &bundle_id);
 
-            NSString *bundleIDStr = [NSString stringWithCString:bundle_id encoding:NSASCIIStringEncoding];
-            NSString *appNameStr = [NSString stringWithCString:app_name encoding:NSASCIIStringEncoding];
-            
-            // Add all apps to the dictionary
-            ans[bundleIDStr] = appNameStr;
-            
-            free(bundle_id);
-            free(app_name);
+                        // Skip if bundle ID is empty
+                        if (bundle_id == NULL || strlen(bundle_id) == 0) {
+                            free(bundle_id);
+                            continue;
+                        }
+
+                        // Retrieve the app name
+                        plist_t app_name_node = plist_dict_get_item(app, "CFBundleName");
+                        char *app_name = NULL;
+                        if (app_name_node) {
+                            plist_get_string_val(app_name_node, &app_name);
+                        } else {
+                            app_name = strdup("Unknown");
+                        }
+
+                        ans[[NSString stringWithCString:bundle_id encoding:NSASCIIStringEncoding]] = [NSString stringWithCString:app_name encoding:NSASCIIStringEncoding];
+
+                        free(bundle_id);
+                        free(app_name);
+                    }
+                }
+            }
         }
     }
-    
+
+
     installation_proxy_client_free(client);
-    
+
     return ans;
 }
