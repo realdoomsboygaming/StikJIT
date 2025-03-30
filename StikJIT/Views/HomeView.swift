@@ -347,9 +347,16 @@ class InstalledAppsViewModel: ObservableObject {
     
     func loadApps() {
         do {
-            self.apps = try JITEnableContext.shared().getAppList()
+            // Use getAppListWithError: method instead
+            var error: NSError?
+            if let appList = JITEnableContext.shared().getAppList(withError: &error) {
+                self.apps = appList
+            } else if let error = error {
+                print("Error loading apps: \(error)")
+                self.apps = [:]
+            }
         } catch {
-            print(error)
+            print("Error loading apps: \(error)")
             self.apps = [:]
         }
     }
