@@ -342,20 +342,15 @@ class InstalledAppsViewModel: ObservableObject {
         loadApps()
     }
     
-    func loadApps() {
-        do {
-            // Use the new Swift-friendly method
-            if let appList = JITEnableContext.shared().getAppList() {
-                self.apps = appList
+        func loadApps() {
+            // Use the new simple method that doesn't require error handling
+            if let appList = JITEnableContext.shared().getAppsSimple() {
+                self.apps = appList as? [String: String] ?? [:]
             } else {
                 print("Error loading apps")
                 self.apps = [:]
             }
-         } catch {
-            print("Error loading apps: \(error)")
-            self.apps = [:]
         }
-    }
     
     func loadAppIcon(for bundleID: String, completion: @escaping (UIImage?) -> Void) {
         // Implement app icon loading logic here
