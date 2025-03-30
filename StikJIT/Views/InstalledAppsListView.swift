@@ -1,157 +1,147 @@
+//
+//  InstalledAppsListView.swift
+//  StikJIT
+//
+//  Created by Stossy11 on 28/03/2025.
+//
+
 import SwiftUI
 
 struct InstalledAppsListView: View {
     @StateObject private var viewModel = InstalledAppsViewModel()
-    @State private var searchText = ""
+    @State private var appIcons: [String: UIImage] = [:]
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("recentApps") var recentApps: [String] = []
     var onSelectApp: (String) -> Void
-    
-    var filteredApps: [(key: String, value: String)] {
-        let sorted = viewModel.apps.sorted(by: { $0.value < $1.value }) // Sort by app name for better UX
-        if searchText.isEmpty {
-            return sorted
-        }
-        return sorted.filter { bundleID, appName in
-            bundleID.localizedCaseInsensitiveContains(searchText) ||
-            appName.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-    
+
     var body: some View {
         NavigationView {
-            VStack {
-                searchBar
-                
-                if viewModel.apps.isEmpty {
-                    VStack(spacing: 20) {
-                        ProgressView()
-                            .padding()
-                        Text("Loading apps...")
-                            .foregroundColor(.secondary)
+            List {
+                if !recentApps.isEmpty {
+                    Section {
+                        ForEach(recentApps, id: \.self) { bundleID in
+                            AppButton(bundleID: bundleID, appName: viewModel.apps[bundleID] ?? "", recentApps: $recentApps, appIcons: $appIcons, onSelectApp: onSelectApp)
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        withAnimation {
+                                            recentApps.removeAll(where: { $0 == bundleID })
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                        }
+                    } header: {
+                        Text("Recents")
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    appList
+                }
+                Section {
+                    ForEach(viewModel.apps.sorted(by: { $0.key < $1.key }), id: \.key) { bundleID, appName in
+                        AppButton(bundleID: bundleID, appName: appName, recentApps: $recentApps, appIcons: $appIcons, onSelectApp: onSelectApp)
+                    }
+                } header: {
+                    if !recentApps.isEmpty {
+                        Text("All applications")
+                    } else {
+                        EmptyView()
+                    }
                 }
             }
-            .background(Color(UIColor.systemGroupedBackground).edgesIgnoringSafeArea(.all))
+            .listStyle(.plain)
             .navigationTitle("Installed Apps")
-            .navigationBarItems(
-                leading: Button("Done") {
+            .toolbar(content: {
+                Button("Done") {
                     dismiss()
                 }
-                .font(.system(size: 17, weight: .regular))
-                .foregroundColor(.blue),
-                
-                trailing: Button(action: {
-                    viewModel.loadApps()
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 17))
-                        .foregroundColor(.blue)
-                }
-            )
+            })
         }
-        .onAppear {
-            viewModel.loadApps()
-        }
+        .background(Color(UIColor.systemGroupedBackground).edgesIgnoringSafeArea(.all))
     }
-    
-    var searchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
-            
-            TextField("Search apps", text: $searchText)
-                .foregroundColor(Color.primary)
-                .disableAutocorrection(true)
-            
-            if !searchText.isEmpty {
-                Button(action: {
-                    searchText = ""
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+}
+
+struct AppButton: View {
+    @State var bundleID: String
+    @State var appName: String
+    @Binding var recentApps: [String]
+    @Binding var appIcons: [String: UIImage]
+    var onSelectApp: (String) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: {
+            recentApps.removeAll(where: { $0 == bundleID })
+            recentApps.insert(bundleID, at: 0)
+            if recentApps.count > 3 {
+                recentApps = Array(recentApps.prefix(3))
+            }
+            onSelectApp(bundleID)
+        }) {
+            HStack(spacing: 16) {
+                if let image = appIcons[bundleID] {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 60, height: 60)
+                        .cornerRadius(12)
+                        .shadow(color: colorScheme == .dark ? Color.black.opacity(0.2) : Color.gray.opacity(0.2), radius: 3, x: 0, y: 1)
+                } else {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.systemGray5))
+                        .frame(width: 60, height: 60)
+                        .overlay(
+                            Image(systemName: "app")
+                                .font(.system(size: 26))
+                                .foregroundColor(.gray)
+                        )
+                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        .onAppear {
+                            loadAppIcon(for: bundleID)
+                        }
                 }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appName)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Color(.label))
+                    Text(bundleID)
+                        .font(.system(size: 15))
+                        .foregroundColor(Color.gray)
+                        .lineLimit(1)
+                }
+                Spacer()
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
-        .padding(.horizontal)
-        .padding(.top, 8)
     }
-    
-    var appList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(filteredApps, id: \.key) { bundleID, appName in
-                    Button(action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            onSelectApp(bundleID)
-                        }
-                    }) {
-                        HStack(spacing: 16) {
-                            // App Icon
-                            if let image = viewModel.appIcons[bundleID] {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 60, height: 60)
-                                    .cornerRadius(12)
-                                    .shadow(color: colorScheme == .dark ? Color.black.opacity(0.2) : Color.gray.opacity(0.2), 
-                                            radius: 3, x: 0, y: 1)
-                            } else {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(UIColor.systemGray5))
-                                    .frame(width: 60, height: 60)
-                                    .overlay(
-                                        Image(systemName: "app")
-                                            .font(.system(size: 26))
-                                            .foregroundColor(.gray)
-                                    )
-                                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-                                    .onAppear {
-                                        loadAppIcon(for: bundleID)
-                                    }
-                            }
-                            
-                            // App Name and Bundle ID
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(appName)
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(Color.primary)
-                                
-                                Text(bundleID)
-                                    .font(.system(size: 15))
-                                    .foregroundColor(Color.gray)
-                                    .lineLimit(1)
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 20)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    if bundleID != filteredApps.last?.key {
-                        Divider()
-                            .padding(.leading, 96)
-                            .padding(.trailing, 20)
-                            .opacity(0.4)
-                    }
-                }
-            }
-            .background(Color(UIColor.systemBackground))
-        }
-    }
-    
-    // Helper method to load app icon
+
     private func loadAppIcon(for bundleID: String) {
-        viewModel.loadAppIcon(for: bundleID) { _ in }
+        AppStoreIconFetcher.getIcon(for: bundleID) { image in
+            if let image = image {
+                DispatchQueue.main.async {
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        self.appIcons[bundleID] = image
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension Array: @retroactive RawRepresentable where Element: Codable {
+    public init?(rawValue: String) {
+        guard let data = rawValue.data(using: .utf8),
+              let result = try? JSONDecoder().decode([Element].self, from: data)
+        else {
+            return nil
+        }
+        self = result
+    }
+
+    public var rawValue: String {
+        guard let data = try? JSONEncoder().encode(self),
+              let result = String(data: data, encoding: .utf8)
+        else {
+            return "[]"
+        }
+        return result
     }
 }
