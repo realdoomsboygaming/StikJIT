@@ -6,6 +6,27 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+// MountingProgress for tracking Developer Disk Image mounting
+class MountingProgress: ObservableObject {
+    static let shared = MountingProgress()
+    
+    @Published var mountProgress: Double = 0
+    
+    private init() {}
+    
+    func updateProgress(_ progress: Double) {
+        DispatchQueue.main.async {
+            self.mountProgress = progress
+        }
+    }
+    
+    func resetProgress() {
+        DispatchQueue.main.async {
+            self.mountProgress = 0
+        }
+    }
+}
+
 struct SettingsView: View {
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
@@ -735,12 +756,5 @@ struct CollaboratorRow: View {
             }
             .padding(.vertical, 8)
         }
-    }
-}
-
-// Define these in a separate file if they conflict
-struct ConsoleLogsView_Preview: PreviewProvider {
-    static var previews: some View {
-        ConsoleLogsView()
     }
 }
