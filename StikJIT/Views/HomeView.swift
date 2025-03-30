@@ -335,3 +335,32 @@ struct HomeView: View {
         }
     }
 }
+
+// ViewModel for InstalledAppsListView
+class InstalledAppsViewModel: ObservableObject {
+    @Published var apps: [String: String] = [:]
+    @Published var appIcons: [String: UIImage] = [:]
+    
+    init() {
+        loadApps()
+    }
+    
+    func loadApps() {
+        do {
+            self.apps = try JITEnableContext.shared().getAppList()
+        } catch {
+            print(error)
+            self.apps = [:]
+        }
+    }
+    
+    func loadAppIcon(for bundleID: String, completion: @escaping (UIImage?) -> Void) {
+        // Implement app icon loading logic here
+        // For now, just complete with nil
+        completion(nil)
+    }
+}
+
+#Preview {
+    HomeView()
+}
