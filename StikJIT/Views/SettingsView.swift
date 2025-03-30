@@ -413,7 +413,9 @@ struct SettingsView: View {
                                 .pickerStyle(SegmentedPickerStyle())
                                 .onChange(of: connectionMode) { newValue in
                                     // Update the JITEnableContext when mode changes
-                                    JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: Int32(newValue)) ?? .USB)
+                                    // Fixed: Use direct conversion to Objective-C ConnectionMode
+                                    let mode: ConnectionMode = newValue == 0 ? .USB : .TCP
+                                    JITEnableContext.shared().setConnectionMode(mode)
                                     
                                     // Show confirmation alert when changing modes
                                     let modeName = newValue == 0 ? "USB" : "WiFi/WireGuard"
@@ -830,7 +832,9 @@ struct SettingsView: View {
             loadCustomBackgroundColor()
             
             // Set the connection mode in JITEnableContext when the view appears
-            JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: Int32(connectionMode)) ?? .USB)
+            // Fixed: Use direct conversion to Objective-C ConnectionMode
+            let mode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
+            JITEnableContext.shared().setConnectionMode(mode)
         }
     }
 
