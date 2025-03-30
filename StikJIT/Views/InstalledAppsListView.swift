@@ -1,10 +1,3 @@
-//
-//  InstalledAppsListView.swift
-//  StikJIT
-//
-//  Editied by doomsboygaming on 03/28/2025.
-//
-
 import SwiftUI
 
 struct InstalledAppsListView: View {
@@ -15,7 +8,7 @@ struct InstalledAppsListView: View {
     var onSelectApp: (String) -> Void
     
     var filteredApps: [(key: String, value: String)] {
-        let sorted = viewModel.apps.sorted(by: { $0.key < $1.key })
+        let sorted = viewModel.apps.sorted(by: { $0.value < $1.value }) // Sort by app name
         if searchText.isEmpty {
             return sorted
         }
@@ -27,6 +20,10 @@ struct InstalledAppsListView: View {
     
     var body: some View {
         listContent
+            .onAppear {
+                // Refresh the app list every time the view appears
+                viewModel.loadApps()
+            }
     }
     
     var listContent: some View {
@@ -34,15 +31,33 @@ struct InstalledAppsListView: View {
             VStack {
                 searchBar
                 
-                appList
+                if viewModel.isLoading {
+                    loadingView
+                } else if let errorMessage = viewModel.errorMessage {
+                    errorView(message: errorMessage)
+                } else if viewModel.apps.isEmpty {
+                    emptyStateView
+                } else {
+                    appList
+                }
             }
             .background(Color(UIColor.systemGroupedBackground).edgesIgnoringSafeArea(.all))
             .navigationTitle("Installed Apps")
-            .navigationBarItems(leading: Button("Done") {
-                dismiss()
-            }
-            .font(.system(size: 17, weight: .regular))
-            .foregroundColor(.blue))
+            .navigationBarItems(
+                leading: Button("Done") {
+                    dismiss()
+                }
+                .font(.system(size: 17, weight: .regular))
+                .foregroundColor(.blue),
+                
+                trailing: Button(action: {
+                    viewModel.loadApps()
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 17))
+                        .foregroundColor(.blue)
+                }
+            )
         }
     }
     
@@ -70,6 +85,81 @@ struct InstalledAppsListView: View {
         .cornerRadius(10)
         .padding(.horizontal)
         .padding(.top, 8)
+    }
+    
+    var loadingView: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(1.5)
+                .padding()
+            
+            Text("Loading Apps...")
+                .font(.headline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    func errorView(message: String) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+                .padding()
+            
+            Text(message)
+                .font(.headline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            
+            Button(action: {
+                viewModel.loadApps()
+            }) {
+                Text("Try Again")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 24)
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+            .padding(.top, 16)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "app.badge.checkmark")
+                .font(.system(size: 50))
+                .foregroundColor(.gray)
+                .padding()
+            
+            Text("No JIT-Compatible Apps Found")
+                .font(.headline)
+                .foregroundColor(.secondary)
+            
+            Text("Make sure your device is connected and has development apps installed.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            
+            Button(action: {
+                viewModel.loadApps()
+            }) {
+                Text("Refresh")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 24)
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+            .padding(.top, 16)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     var appList: some View {
@@ -110,7 +200,7 @@ struct InstalledAppsListView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(appName)
                                     .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(Color.blue)
+                                    .foregroundColor(Color.primary)
                                 
                                 Text(bundleID)
                                     .font(.system(size: 15))
@@ -119,6 +209,12 @@ struct InstalledAppsListView: View {
                             }
                             
                             Spacer()
+                            
+                            // Show indicator for JIT-compatible apps
+                            Image(systemName: "bolt.fill")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 16))
+                                .opacity(0.8)
                         }
                         .padding(.vertical, 12)
                         .padding(.horizontal, 20)
