@@ -65,17 +65,8 @@ extension Color {
     }
 }
 
-// Add URL extension for document directory
-extension URL {
-    static var documentsDirectory: URL {
-        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-    }
-}
-
 extension Color {
-    static let primaryBackground = Color.black
     static let cardBackground = Color.white.opacity(0.2)
     static let cardBackground2 = Color.blue.opacity(0.8)
     static let primaryText = Color.white
-    static let secondaryText = Color.white.opacity(0.7)
 }
