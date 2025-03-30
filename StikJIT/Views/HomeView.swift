@@ -193,8 +193,8 @@ struct HomeView: View {
             checkPairingFileExists()
             
             // Initialize connection mode from user defaults when the app starts
-            // Fixed: Use direct conversion to Objective-C ConnectionMode
-            let swiftMode = ConnectionMode.fromInt(connectionMode)
+            // MODIFIED: Use the extension method for type safety
+            let swiftMode: ConnectionMode = connectionMode == 0 ? .USB : .TCP
             JITEnableContext.shared().setConnectionModeSwift(swiftMode)
             
             // Add to logs
