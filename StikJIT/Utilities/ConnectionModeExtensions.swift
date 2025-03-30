@@ -1,16 +1,17 @@
 import Foundation
 
-// Define the Swift-side enum to match the Objective-C side
-enum ConnectionMode: Int {
+// Create a Swift-friendly enum that mirrors the Objective-C ConnectionMode
+// We're using a different name to avoid conflicts
+@objc public enum ConnectionModeSwift: Int {
     case USB = 0
     case TCP = 1
 }
 
-// Extension to JITEnableContext for type-safe calls from Swift
+// Extend JITEnableContext to add a Swift-friendly method
 extension JITEnableContext {
-    // Type-safe wrapper method for setting connection mode
-    func setConnectionModeSwift(_ mode: ConnectionMode) {
-        // Convert Swift enum to the raw Int value, which matches the Objective-C enum values
-        self.setConnectionMode(ConnectionMode_objc(rawValue: mode.rawValue)!)
+    @objc public func setConnectionModeSwift(_ mode: ConnectionModeSwift) {
+        // The Objective-C ConnectionMode enum has the same raw values
+        // Just pass the raw value to the Objective-C method
+        self.setConnectionMode(Int32(mode.rawValue))
     }
 }
