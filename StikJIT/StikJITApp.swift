@@ -201,7 +201,8 @@ struct LoadingView: View {
 
 public func showAlert(title: String, message: String, showOk: Bool, completion: @escaping (Bool) -> Void) {
     DispatchQueue.main.async {
-        if let mainWindow = UIApplication.shared.windows.last {
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,    
+            let mainWindow = windowScene.windows.last {
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             
              if showOk {
