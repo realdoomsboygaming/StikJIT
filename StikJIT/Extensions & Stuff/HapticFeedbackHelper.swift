@@ -1,15 +1,11 @@
-//
-//  HapticFeedbackHelper.swift
-//  StikJIT
-//
-//  Created by Stephen on 3/27/25.
-//
+import UIKit
 
-import SwiftUI
-
-struct HapticFeedbackHelper {
+// Renamed to avoid conflict with the class version in StikJITApp.swift
+struct HapticFeedbackUtil {
     static func trigger() {
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        // Keep the implementation from your original HapticFeedbackHelper struct
+        let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedbackGenerator.prepare()
+        impactFeedbackGenerator.impactOccurred()
     }
 }
