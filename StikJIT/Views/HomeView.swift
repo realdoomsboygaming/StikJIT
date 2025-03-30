@@ -59,9 +59,12 @@ struct HomeView: View {
         }
         .onAppear {
             checkPairingFileExists()
-            if pairingFileExists {
-                loadApps()
-            }
+            
+            // Initialize connection mode from user defaults when the app starts
+            JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: connectionMode) ?? .USB)
+            
+            // Add to logs
+            LogManager.shared.addInfoLog("App started in \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
         }
         .onReceive(timer) { _ in
             refreshBackground()
