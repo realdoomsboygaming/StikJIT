@@ -8,74 +8,9 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// Define the ConnectionMode enum to match the Objective-C version
-enum ConnectionMode: Int {
-    case USB = 0
-    case TCP = 1
-}
-
 extension UIDocumentPickerViewController {
     @objc func fix_init(forOpeningContentTypes contentTypes: [UTType], asCopy: Bool) -> UIDocumentPickerViewController {
         return fix_init(forOpeningContentTypes: contentTypes, asCopy: true)
-    }
-}
-
-// Helper functions
-func isMounted() -> Bool {
-    // This would check if the Developer Disk Image is mounted
-    // For now, return true if there's a pairing file
-    let fileManager = FileManager.default
-    return fileManager.fileExists(atPath: URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path)
-}
-
-func startHeartbeatInBackground() {
-    // Start the heartbeat process in the background
-    DispatchQueue.global(qos: .background).async {
-        JITEnableContext.shared().startHeartbeatWithCompletionHandler({ result, message in
-            DispatchQueue.main.async {
-                if result == 0 {
-                    LogManager.shared.addInfoLog("Heartbeat started successfully: \(message)")
-                } else {
-                    LogManager.shared.addErrorLog("Failed to start heartbeat: \(message)")
-                }
-            }
-        }, logger: { message in
-            if let message = message {
-                LogManager.shared.addInfoLog(message)
-            }
-        })
-    }
-}
-
-func showAlert(title: String, message: String, showOk: Bool, completion: @escaping (Bool) -> Void) {
-    DispatchQueue.main.async {
-        let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        
-        if showOk {
-            alertController.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                completion(true)
-            })
-        } else {
-            alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
-                completion(false)
-            })
-            alertController.addAction(UIAlertAction(title: "Continue", style: .default) { _ in
-                completion(true)
-            })
-        }
-        
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = scene.windows.first?.rootViewController {
-            rootViewController.present(alertController, animated: true, completion: nil)
-        }
-    }
-}
-
-class HapticFeedbackHelper {
-    static func trigger() {
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.prepare()
-        generator.impactOccurred()
     }
 }
 
@@ -258,7 +193,7 @@ struct HomeView: View {
             checkPairingFileExists()
             
             // Initialize connection mode from user defaults when the app starts
-            JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: connectionMode) ?? .USB)
+            JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: Int32(connectionMode)) ?? .USB)
             
             // Add to logs
             LogManager.shared.addInfoLog("App started in \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
@@ -402,6 +337,7 @@ struct HomeView: View {
 // ViewModel for InstalledAppsListView
 class InstalledAppsViewModel: ObservableObject {
     @Published var apps: [String: String] = [:]
+    @Published var appIcons: [String: UIImage] = [:]
     
     init() {
         loadApps()
@@ -414,6 +350,12 @@ class InstalledAppsViewModel: ObservableObject {
             print(error)
             self.apps = [:]
         }
+    }
+    
+    func loadAppIcon(for bundleID: String, completion: @escaping (UIImage?) -> Void) {
+        // Implement app icon loading logic here
+        // For now, just complete with nil
+        completion(nil)
     }
 }
 
