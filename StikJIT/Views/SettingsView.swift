@@ -6,106 +6,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// LogManager class for managing and storing logs
-class LogManager: ObservableObject {
-    static let shared = LogManager()
-    
-    struct LogEntry: Identifiable {
-        enum LogType: String {
-            case info = "INFO"
-            case error = "ERROR"
-            case debug = "DEBUG"
-            case warning = "WARNING"
-        }
-        
-        let id = UUID()
-        let timestamp: Date
-        let type: LogType
-        let message: String
-    }
-    
-    @Published var logs: [LogEntry] = []
-    @Published var errorCount: Int = 0
-    
-    func addInfoLog(_ message: String) {
-        let entry = LogEntry(timestamp: Date(), type: .info, message: message)
-        DispatchQueue.main.async {
-            self.logs.append(entry)
-        }
-    }
-    
-    func addErrorLog(_ message: String) {
-        let entry = LogEntry(timestamp: Date(), type: .error, message: message)
-        DispatchQueue.main.async {
-            self.logs.append(entry)
-            self.errorCount += 1
-        }
-    }
-    
-    func addDebugLog(_ message: String) {
-        let entry = LogEntry(timestamp: Date(), type: .debug, message: message)
-        DispatchQueue.main.async {
-            self.logs.append(entry)
-        }
-    }
-    
-    func addWarningLog(_ message: String) {
-        let entry = LogEntry(timestamp: Date(), type: .warning, message: message)
-        DispatchQueue.main.async {
-            self.logs.append(entry)
-        }
-    }
-    
-    func clearLogs() {
-        DispatchQueue.main.async {
-            self.logs.removeAll()
-            self.errorCount = 0
-        }
-    }
-}
-
-// Objective-C bridge for LogManager
-@objc class LogManagerBridge: NSObject {
-    @objc static let shared = LogManagerBridge()
-    
-    @objc func addInfoLog(_ message: String) {
-        LogManager.shared.addInfoLog(message)
-    }
-    
-    @objc func addErrorLog(_ message: String) {
-        LogManager.shared.addErrorLog(message)
-    }
-    
-    @objc func addDebugLog(_ message: String) {
-        LogManager.shared.addDebugLog(message)
-    }
-    
-    @objc func addWarningLog(_ message: String) {
-        LogManager.shared.addWarningLog(message)
-    }
-}
-
-// MountingProgress for tracking Developer Disk Image mounting
-class MountingProgress: ObservableObject {
-    static let shared = MountingProgress()
-    
-    @Published var mountProgress: Double = 0
-    
-    private init() {}
-    
-    func updateProgress(_ progress: Double) {
-        DispatchQueue.main.async {
-            self.mountProgress = progress
-        }
-    }
-    
-    func resetProgress() {
-        DispatchQueue.main.async {
-            self.mountProgress = 0
-        }
-    }
-}
-
 // ConsoleLogsView implementation - integrated directly into SettingsView.swift
 struct ConsoleLogsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -492,7 +392,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 16)
                     }
                     
-                    // Connection Settings section (NEW)
+                    // Connection Settings section
                     SettingsCard {
                         VStack(alignment: .leading, spacing: 20) {
                             Text("Connection Settings")
@@ -513,7 +413,7 @@ struct SettingsView: View {
                                 .pickerStyle(SegmentedPickerStyle())
                                 .onChange(of: connectionMode) { newValue in
                                     // Update the JITEnableContext when mode changes
-                                    JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: newValue) ?? .USB)
+                                    JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: Int32(newValue)) ?? .USB)
                                     
                                     // Show confirmation alert when changing modes
                                     let modeName = newValue == 0 ? "USB" : "WiFi/WireGuard"
@@ -930,7 +830,7 @@ struct SettingsView: View {
             loadCustomBackgroundColor()
             
             // Set the connection mode in JITEnableContext when the view appears
-            JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: connectionMode) ?? .USB)
+            JITEnableContext.shared().setConnectionMode(ConnectionMode(rawValue: Int32(connectionMode)) ?? .USB)
         }
     }
 
