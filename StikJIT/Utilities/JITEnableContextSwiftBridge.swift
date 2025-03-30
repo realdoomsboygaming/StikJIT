@@ -10,21 +10,14 @@ import Foundation
 extension JITEnableContext {
     // Method to set connection mode using Swift enum
     @objc public func setConnectionModeSwift(_ mode: ConnectionModeSwift) {
-        // Call the Objective-C method with raw int value
-        self.setConnectionMode(mode.rawValue)
+        // Cast to Int32 to match the Objective-C method signature
+        self.setConnectionMode(Int32(mode.rawValue))
     }
     
     // Non-@objc version for Swift use
     public func getAppList() -> [String: String]? {
         var error: NSError?
-        // Fix method name by adding the colon
-        let result = self.getAppListWithError(&error)
-        
-        if let error = error {
-            print("Error getting app list: \(error)")
-            return nil
-        }
-        
-        return result
+        // Use the correct method name based on JITEnableContext.h
+        return self.getAppListWithError(&error)
     }
 }
