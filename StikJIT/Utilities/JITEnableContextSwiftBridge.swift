@@ -1,4 +1,3 @@
-// JITEnableContextSwiftBridge.swift
 import Foundation
 
 // Single definition of ConnectionModeSwift enum
@@ -15,9 +14,10 @@ extension JITEnableContext {
         self.setConnectionMode(mode.rawValue)
     }
     
-    // Non-@objc version with inout parameter for Swift use
+    // Non-@objc version for Swift use
     public func getAppList() -> [String: String]? {
         var error: NSError?
+        // Fix method name by adding the colon
         let result = self.getAppListWithError(&error)
         
         if let error = error {
