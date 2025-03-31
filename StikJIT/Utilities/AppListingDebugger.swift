@@ -1,5 +1,3 @@
-// AppListingDebugger.swift - Fixed version
-
 import Foundation
 import SwiftUI
 
@@ -29,13 +27,13 @@ class EnhancedAppsViewModel: ObservableObject {
         LogManager.shared.addInfoLog("🔍 Debug: Pairing file exists: \(pairingExists)")
         
         // Try both methods for getting apps to see which one works
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // Method 1: Try getAppsSimple - fixed redundant cast
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Method 1: Try getAppsSimple
             LogManager.shared.addInfoLog("🔍 Debug: Attempting getAppsSimple()")
             if let appsSimple = JITEnableContext.shared().getAppsSimple(), !appsSimple.isEmpty {
                 DispatchQueue.main.async {
-                    self?.apps = appsSimple
-                    self?.isLoading = false
+                    self.apps = appsSimple
+                    self.isLoading = false
                     LogManager.shared.addInfoLog("✅ Success: Found \(appsSimple.count) apps with getAppsSimple()")
                     
                     if !appsSimple.isEmpty {
@@ -46,25 +44,21 @@ class EnhancedAppsViewModel: ObservableObject {
                 return
             }
             
-            // Method 2: Try getAppListWithError - fixed try statement
-            LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying getAppListWithError()")
-            do {
-                // This should match the method signature - removed try and let unwrapping
-                var error: NSError?
-                if let appList = JITEnableContext.shared().getAppListWithError(&error), !appList.isEmpty {
-                    DispatchQueue.main.async {
-                        self?.apps = appList
-                        self?.isLoading = false
-                        LogManager.shared.addInfoLog("✅ Success: Found \(appList.count) apps with getAppListWithError()")
-                    }
-                    return
-                } else if let error = error {
-                    LogManager.shared.addErrorLog("❌ Error: getAppListWithError() failed: \(error.localizedDescription)")
-                } else {
-                    LogManager.shared.addWarningLog("⚠️ Warning: getAppListWithError() returned empty result")
+            // Method 2: Try getAppListWithError using correct method signature
+            LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying getAppListWithError")
+            
+            var error: NSError? = nil
+            if let appList = JITEnableContext.shared().getAppList(withError: &error), !appList.isEmpty {
+                DispatchQueue.main.async {
+                    self.apps = appList
+                    self.isLoading = false
+                    LogManager.shared.addInfoLog("✅ Success: Found \(appList.count) apps with getAppListWithError")
                 }
-            } catch {
-                LogManager.shared.addErrorLog("❌ Error: Exception occurred: \(error.localizedDescription)")
+                return
+            } else if let error = error {
+                LogManager.shared.addErrorLog("❌ Error: getAppListWithError failed: \(error.localizedDescription)")
+            } else {
+                LogManager.shared.addWarningLog("⚠️ Warning: getAppListWithError returned empty result")
             }
             
             // Method 3: Last resort - check if there's a USB connection issue
@@ -72,16 +66,16 @@ class EnhancedAppsViewModel: ObservableObject {
                 LogManager.shared.addInfoLog("🔍 Debug: USB mode connection check")
                 // Try to verify USB connection or suggest switching to TCP mode
                 DispatchQueue.main.async {
-                    self?.errorMessage = "No apps found in USB mode. Try checking your USB connection or switch to WiFi mode in Settings."
-                    self?.isLoading = false
+                    self.errorMessage = "No apps found in USB mode. Try checking your USB connection or switch to WiFi mode in Settings."
+                    self.isLoading = false
                     LogManager.shared.addWarningLog("⚠️ Warning: No apps found in USB mode")
                 }
             } else {
                 // Try to verify TCP/WiFi connection
                 LogManager.shared.addInfoLog("🔍 Debug: TCP/WiFi connection check")
                 DispatchQueue.main.async {
-                    self?.errorMessage = "No apps found in WiFi mode. Ensure WireGuard is connected or try switching to USB mode in Settings."
-                    self?.isLoading = false
+                    self.errorMessage = "No apps found in WiFi mode. Ensure WireGuard is connected or try switching to USB mode in Settings."
+                    self.isLoading = false
                     LogManager.shared.addWarningLog("⚠️ Warning: No apps found in TCP/WiFi mode")
                 }
             }
