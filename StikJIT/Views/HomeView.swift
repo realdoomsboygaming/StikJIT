@@ -270,10 +270,10 @@ struct HomeView: View {
             }
         }
         .sheet(isPresented: $isShowingInstalledApps) {
-            InstalledAppsListView { selectedBundle in
+            EnhancedAppsListView { selectedBundle in
                 bundleID = selectedBundle
                 isShowingInstalledApps = false
-                HapticFeedbackUtil.trigger()   // Use the new struct name
+                HapticFeedbackUtil.trigger()
                 startJITInBackground(with: selectedBundle)
             }
         }
