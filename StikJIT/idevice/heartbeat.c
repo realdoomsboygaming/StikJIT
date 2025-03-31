@@ -48,14 +48,15 @@ void startHeartbeat(IdevicePairingFile* pairing_file, TcpProviderHandle** provid
         if (err != IdeviceSuccess) {
             logger("DEBUG: Failed to connect to heartbeat over USB: %d", err);
             usbmuxd_provider_free(usb_provider);
+            idevice_usbmuxd_addr_free(usb_addr);
             completion(err, "Failed to connect to heartbeat over USB");
             return;
         }
         
         logger("DEBUG: Connected to heartbeat over USB successfully.");
-        completion(0, "Heartbeat over USB completed");
+        completion(0, "Heartbeat over USB connected successfully");
         
-        // We can't store the provider in TCP format, so inform caller
+        // Set provider to NULL since we can't use the USB provider for TCP functions
         *provider = NULL;
         logger("DEBUG: USB mode is used - TCP provider is NULL");
     }
@@ -66,14 +67,14 @@ void startHeartbeat(IdevicePairingFile* pairing_file, TcpProviderHandle** provid
         addr.sin_family = AF_INET;
         if (inet_pton(AF_INET, "10.7.0.1", &addr.sin_addr) <= 0) {
             logger("DEBUG: Error converting IP address.");
-            completion(err, "Error converting IP address");
+            completion(-1, "Error converting IP address");
             return;
         }
         logger("DEBUG: Socket address created for IP 10.7.0.1");
         
         logger("DEBUG: Creating TCP provider...");
         err = idevice_tcp_provider_new((struct sockaddr *)&addr, pairing_file,
-                                      "ExampleProvider", provider);
+                                      "StikJIT", provider);
         if (err != IdeviceSuccess) {
             logger("DEBUG: Failed to create TCP provider: %d", err);
             completion(err, "Failed to create TCP provider");
@@ -85,12 +86,12 @@ void startHeartbeat(IdevicePairingFile* pairing_file, TcpProviderHandle** provid
         err = heartbeat_connect_tcp(*provider, &client);
         if (err != IdeviceSuccess) {
             completion(err, "Failed to connect to Heartbeat");
-            logger("DEBUG: Failed to connect to installation proxy: %d", err);
+            logger("DEBUG: Failed to connect to heartbeat: %d", err);
             return;
         }
         logger("DEBUG: Connected to heartbeat successfully.");
         
-        completion(0, "Heartbeat Completed");
+        completion(0, "Heartbeat over TCP connected successfully");
     }
     
     // Heartbeat loop is the same for both connection modes
