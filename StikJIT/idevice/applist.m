@@ -6,8 +6,8 @@
 #include <limits.h>
 
 #include "applist.h"
+#include "plist.h"
 
-// New function to list apps over USB with exactly the same filtering as the original function
 NSDictionary<NSString*, NSString*>* list_installed_apps_usb(UsbmuxdAddrHandle* addr, NSString** error) {
     IdeviceErrorCode err = IdeviceSuccess;
     
@@ -92,7 +92,6 @@ NSDictionary<NSString*, NSString*>* list_installed_apps_usb(UsbmuxdAddrHandle* a
     return ans;
 }
 
-// Original function left completely untouched
 NSDictionary<NSString*, NSString*>* list_installed_apps(TcpProviderHandle* provider, NSString** error) {
     IdeviceErrorCode err = IdeviceSuccess;
 
