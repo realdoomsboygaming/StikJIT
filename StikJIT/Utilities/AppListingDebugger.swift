@@ -26,8 +26,10 @@ class EnhancedAppsViewModel: ObservableObject {
         let pairingExists = fileManager.fileExists(atPath: pairingFilePath)
         LogManager.shared.addInfoLog("🔍 Debug: Pairing file exists: \(pairingExists)")
         
-        // Try both methods for getting apps to see which one works
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Create a dispatch work item to handle the apps loading
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            
             // Method 1: Try getAppsSimple
             LogManager.shared.addInfoLog("🔍 Debug: Attempting getAppsSimple()")
             if let appsSimple = JITEnableContext.shared().getAppsSimple(), !appsSimple.isEmpty {
@@ -44,14 +46,15 @@ class EnhancedAppsViewModel: ObservableObject {
                 return
             }
             
-            // Method 2: Try getAppListWithError using a local NSError
+            // Method 2: Try getAppListWithError
             LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying alternative method")
             
-            var error: NSError?
+            var error: NSError? = nil
             var appList: NSDictionary?
             
-            // Attempt to get app list using the method that doesn't throw and returns NSError
-            appList = try? JITEnableContext.shared().getAppList(withError: &error)
+            if let context = JITEnableContext.shared() {
+                appList = context.getAppList(withError: &error)
+            }
             
             if let appListDict = appList as? [String: String], !appListDict.isEmpty {
                 DispatchQueue.main.async {
@@ -67,28 +70,25 @@ class EnhancedAppsViewModel: ObservableObject {
             }
             
             // Method 3: Last resort - check if there's a connection issue
-            if connectionMode == 0 {
-                LogManager.shared.addInfoLog("🔍 Debug: USB mode connection check")
-                // Try to verify USB connection or suggest switching to TCP mode
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                if connectionMode == 0 {
+                    LogManager.shared.addInfoLog("🔍 Debug: USB mode connection check")
                     self.errorMessage = "No apps found in USB mode. Try checking your USB connection or switch to WiFi mode in Settings."
-                    self.isLoading = false
-                    LogManager.shared.addWarningLog("⚠️ Warning: No apps found in USB mode")
-                }
-            } else {
-                // Try to verify TCP/WiFi connection
-                LogManager.shared.addInfoLog("🔍 Debug: TCP/WiFi connection check")
-                DispatchQueue.main.async {
+                } else {
+                    LogManager.shared.addInfoLog("🔍 Debug: TCP/WiFi connection check")
                     self.errorMessage = "No apps found in WiFi mode. Ensure WireGuard is connected or try switching to USB mode in Settings."
-                    self.isLoading = false
-                    LogManager.shared.addWarningLog("⚠️ Warning: No apps found in TCP/WiFi mode")
                 }
+                self.isLoading = false
+                LogManager.shared.addWarningLog("⚠️ Warning: No apps found in \(connectionMode == 0 ? "USB" : "WiFi") mode")
             }
         }
+        
+        // Execute the work item on a global queue
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
 }
 
-// Preserve the rest of the previous implementation
+// Rest of the implementation remains the same as in the previous version
 struct EnhancedAppsListView: View {
     @StateObject private var viewModel = EnhancedAppsViewModel()
     @State private var appIcons: [String: UIImage] = [:]
