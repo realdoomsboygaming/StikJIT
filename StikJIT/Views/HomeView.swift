@@ -1,24 +1,16 @@
 //
-//  ContentView.swift
+//  HomeView.swift
 //  StikJIT
 //
-//  Created by Stephen on 3/26/25.
+//  Edited by doomsboygaming on 3/31/25.
 //
 
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension UIDocumentPickerViewController {
-    @objc func fix_init(forOpeningContentTypes contentTypes: [UTType], asCopy: Bool) -> UIDocumentPickerViewController {
-        return fix_init(forOpeningContentTypes: contentTypes, asCopy: true)
-    }
-}
-
 struct HomeView: View {
-    @Binding var is_lc: Bool
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
-    @AppStorage("autoQuitAfterEnablingJIT") private var doAutoQuitAfterEnablingJIT = false
     @State private var selectedBackgroundColor: Color = Color(hex: UserDefaults.standard.string(forKey: "customBackgroundColor") ?? "#000000") ?? Color.primaryBackground
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @AppStorage("bundleID") private var bundleID: String = ""
@@ -30,13 +22,10 @@ struct HomeView: View {
     @State private var pairingFileIsValid = false
     @State private var isImportingFile = false
     @State private var importProgress: Float = 0.0
+    @State private var showingTCPConnectionDiagnostics = false
     
     @State private var viewDidAppeared = false
-    @State private var pendingBundleIdToEnableJIT : String? = nil
-    
-    init(is_lc: Binding<Bool>? = nil) {
-        self._is_lc = is_lc ?? .constant(false)
-    }
+    @State private var pendingBundleIdToEnableJIT: String? = nil
 
     var body: some View {
         ZStack {
@@ -56,10 +45,49 @@ struct HomeView: View {
                 }
                 .padding(.top, 40)
                 
+                // WireGuard connection mode indicator
+                HStack {
+                    Image(systemName: "wifi")
+                        .foregroundColor(.green)
+                        .font(.system(size: 16))
+                    Text("WireGuard Mode")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.green)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                )
+                
+                // TCP Connection diagnostics button
+                Button(action: {
+                    showingTCPConnectionDiagnostics = true
+                }) {
+                    HStack {
+                        Image(systemName: "wifi.circle")
+                            .foregroundColor(.purple)
+                            .font(.system(size: 16))
+                        Text("TCP Connection Diagnostics")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.purple)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.vertical, 8)
+                
                 // Main action button - changes based on whether we have a pairing file
                 Button(action: {
-                    
-                    
                     if pairingFileExists {
                         // Got a pairing file, show apps
                         if !isMounted() {
@@ -142,19 +170,33 @@ struct HomeView: View {
                 .frame(height: isImportingFile ? 60 : 30)  // Adjust height based on what's showing
                 
                 Spacer()
+                
+                // Add a connection mode explanation at the bottom
+                VStack(spacing: 4) {
+                    Text("WireGuard mode requires network connectivity via WireGuard")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                    
+                    Text("Check connection status with the diagnostic tool")
+                        .font(.system(.caption2, design: .rounded))
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+                .padding(.bottom, 16)
             }
             .padding()
         }
         .onAppear {
             checkPairingFileExists()
+            
+            // Add to logs
+            LogManager.shared.addInfoLog("App started in WiFi/WireGuard mode")
         }
         .onReceive(timer) { _ in
             refreshBackground()
             checkPairingFileExists()
         }
-        .fileImporter(isPresented: $isShowingPairingFilePicker, allowedContentTypes: [UTType(filenameExtension: "mobiledevicepairing", conformingTo: .data)!, .propertyList]) {result in
+        .fileImporter(isPresented: $isShowingPairingFilePicker, allowedContentTypes: [UTType(filenameExtension: "mobiledevicepairing", conformingTo: .data)!, .propertyList]) { result in
             switch result {
-            
             case .success(let url):
                 let fileManager = FileManager.default
                 let accessing = url.startAccessingSecurityScopedResource()
@@ -228,6 +270,9 @@ struct HomeView: View {
                 startJITInBackground(with: selectedBundle)
             }
         }
+        .sheet(isPresented: $showingTCPConnectionDiagnostics) {
+            TCPConnectionDiagnosticsView()
+        }
         .onOpenURL { url in
             print(url.path())
             if url.host() != "enable-jit" {
@@ -253,8 +298,6 @@ struct HomeView: View {
         }
     }
     
-
-    
     private func checkPairingFileExists() {
         pairingFileExists = FileManager.default.fileExists(atPath: URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path)
     }
@@ -266,13 +309,11 @@ struct HomeView: View {
     private func startJITInBackground(with bundleID: String) {
         isProcessing = true
         
-        // Add log message
-        LogManager.shared.addInfoLog("Starting JIT for \(bundleID)")
+        // Add log message with connection mode info
+        LogManager.shared.addInfoLog("Starting JIT for \(bundleID) using WiFi/WireGuard mode")
         
         DispatchQueue.global(qos: .background).async {
-
-            let success = JITEnableContext.shared.debugApp(withBundleID: bundleID,isLC: is_lc, logger: { message in
-
+            JITEnableContext.shared().debugApp(withBundleID: bundleID, logger: { message in
                 if let message = message {
                     // Log messages from the JIT process
                     LogManager.shared.addInfoLog(message)
@@ -282,10 +323,6 @@ struct HomeView: View {
             DispatchQueue.main.async {
                 LogManager.shared.addInfoLog("JIT process completed for \(bundleID)")
                 isProcessing = false
-                
-                if success && doAutoQuitAfterEnablingJIT {
-                    exit(0)
-                }
             }
         }
     }
@@ -308,8 +345,6 @@ class InstalledAppsViewModel: ObservableObject {
 
     }
 }
-
-
 
 #Preview {
     HomeView()
