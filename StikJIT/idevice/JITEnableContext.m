@@ -68,7 +68,6 @@ JITEnableContext* sharedJITContext = nil;
     };
 }
 
-// apps may have different name, so we must use BundleId as key. [bundleId:name]
 - (NSDictionary<NSString*, NSString*>*)getAppListWithError:(NSError**)error {
     if (connectionMode == ConnectionModeUSB) {
         // USB mode - create a direct USB connection for app listing
@@ -113,7 +112,6 @@ JITEnableContext* sharedJITContext = nil;
     }
 }
 
-// Simplified method for getting apps without explicit error handling
 - (NSDictionary<NSString*, NSString*>*)getAppsSimple {
     NSError *error = nil;
     NSDictionary<NSString*, NSString*>* apps = [self getAppListWithError:&error];
@@ -126,7 +124,6 @@ JITEnableContext* sharedJITContext = nil;
     return apps ?: @{};
 }
 
-// Deallocation logic remains the same
 - (void)dealloc {
     self->heartbeatSessionId = arc4random();
     if(provider) {
