@@ -377,7 +377,7 @@ class InstalledAppsViewModel: ObservableObject {
         
         // Get apps list from the shared context
         DispatchQueue.global(qos: .userInitiated).async {
-            if let appList = JITEnableContext.shared().getAppsSimple() as? [String: String] {
+            if let appList = JITEnableContext.shared().getAppsSimple() {
                 DispatchQueue.main.async {
                     self.apps = appList
                     self.isLoading = false
