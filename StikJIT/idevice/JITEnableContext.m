@@ -1,9 +1,3 @@
-//
-//  JITEnableContext.m
-//  StikJIT
-//
-//  Created by s s on 2025/3/28.
-//
 #include "idevice.h"
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -20,7 +14,6 @@ JITEnableContext* sharedJITContext = nil;
 @implementation JITEnableContext {
     int heartbeatSessionId;
     TcpProviderHandle* provider;
-    UsbmuxdProviderHandle* usbProvider;
     ConnectionMode connectionMode;
 }
 
@@ -75,75 +68,7 @@ JITEnableContext* sharedJITContext = nil;
     };
 }
 
-- (IdevicePairingFile*)getPairingFileWithError:(NSError**)error {
-    NSFileManager* fm = [NSFileManager defaultManager];
-    NSURL* docPathUrl = [fm URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-    NSURL* pairingFileURL = [docPathUrl URLByAppendingPathComponent:@"pairingFile.plist"];
-    if(![fm fileExistsAtPath:pairingFileURL.path]) {
-        NSLog(@"Pairing file not found!");
-        *error = [self errorWithStr:@"Pairing file not found!" code:-17];
-        return false;
-    }
-        
-    IdevicePairingFile* pairingFile = NULL;
-    IdeviceErrorCode err = idevice_pairing_file_read(pairingFileURL.fileSystemRepresentation, &pairingFile);
-    if (err != IdeviceSuccess) {
-        *error = [self errorWithStr:@"Failed to read pairing file!" code:err];
-        return nil;
-    }
-    return pairingFile;
-}
-
-- (void)startHeartbeatWithCompletionHandler:(HeartbeatCompletionHandler)completionHandler logger:(LogFunc)logger {
-    NSError* err = nil;
-    IdevicePairingFile* pairingFile = [self getPairingFileWithError:&err];
-    if(err) {
-        if(logger) {
-            logger(err.localizedDescription);
-        }
-
-        completionHandler(-17, err.localizedDescription);
-        return;
-    }
-    self->heartbeatSessionId = arc4random();
-    startHeartbeat(pairingFile, &(self->provider), &(self->heartbeatSessionId), ^(int result, const char *message) {
-        completionHandler(result,[NSString stringWithCString:message encoding:NSASCIIStringEncoding]);
-    }, [self createCLogger:logger], connectionMode);
-}
-
-- (void)debugAppWithBundleID:(NSString*)bundleID logger:(LogFunc)logger {
-    if (connectionMode == ConnectionModeUSB) {
-        // USB mode - create a direct USB connection for debugging
-        logger(@"Setting up USB debugging connection");
-        
-        // Create a USB connection for debugging
-        UsbmuxdAddrHandle *usb_addr = NULL;
-        IdeviceErrorCode err = idevice_usbmuxd_unix_addr_new("/var/run/usbmuxd", &usb_addr);
-        if (err != IdeviceSuccess) {
-            logger([NSString stringWithFormat:@"Failed to create usbmuxd address: %d", err]);
-            return;
-        }
-        
-        // The actual debugging now uses direct USB
-        debug_app_usb(usb_addr, [bundleID UTF8String], [self createCLogger:logger]);
-        
-        // Clean up
-        idevice_usbmuxd_addr_free(usb_addr);
-    } else {
-        // TCP mode - use the existing provider
-        if(!provider) {
-            if(logger) {
-                logger(@"TCP Provider not initialized!");
-            }
-            NSLog(@"TCP Provider not initialized!");
-            return;
-        }
-        
-        debug_app(provider, [bundleID UTF8String], [self createCLogger:logger]);
-    }
-}
-
-// apps may have different name, so we must use BnudleId as key. [bundleId:name]
+// apps may have different name, so we must use BundleId as key. [bundleId:name]
 - (NSDictionary<NSString*, NSString*>*)getAppListWithError:(NSError**)error {
     if (connectionMode == ConnectionModeUSB) {
         // USB mode - create a direct USB connection for app listing
@@ -188,54 +113,24 @@ JITEnableContext* sharedJITContext = nil;
     }
 }
 
+// Simplified method for getting apps without explicit error handling
+- (NSDictionary<NSString*, NSString*>*)getAppsSimple {
+    NSError *error = nil;
+    NSDictionary<NSString*, NSString*>* apps = [self getAppListWithError:&error];
+    
+    if (error) {
+        NSLog(@"Error getting apps: %@", error);
+        return @{};
+    }
+    
+    return apps ?: @{};
+}
+
+// Deallocation logic remains the same
 - (void)dealloc {
     self->heartbeatSessionId = arc4random();
     if(provider) {
         tcp_provider_free(provider);
     }
 }
-
-// Add this new method to the implementation
-- (NSDictionary<NSString*, NSString*>*)getAppsSimple {
-    if (connectionMode == ConnectionModeUSB) {
-        // USB mode - create a direct USB connection for app listing
-        NSLog(@"Setting up USB connection for app listing");
-        
-        UsbmuxdAddrHandle *usb_addr = NULL;
-        IdeviceErrorCode err = idevice_usbmuxd_unix_addr_new("/var/run/usbmuxd", &usb_addr);
-        if (err != IdeviceSuccess) {
-            NSLog(@"Failed to create usbmuxd address: %d", err);
-            return @{};
-        }
-        
-        NSString* errorStr = nil;
-        NSDictionary<NSString*, NSString*>* ans = list_installed_apps_usb(usb_addr, &errorStr);
-        
-        // Clean up
-        idevice_usbmuxd_addr_free(usb_addr);
-        
-        if(errorStr){
-            NSLog(@"Error getting app list: %@", errorStr);
-            return @{};
-        } else {
-            return ans;
-        }
-    } else {
-        // TCP mode - use the existing provider
-        if(!provider) {
-            NSLog(@"TCP Provider not initialized!");
-            return @{};
-        }
-        
-        NSString* errorStr = nil;
-        NSDictionary<NSString*, NSString*>* ans = list_installed_apps(provider, &errorStr);
-        if(errorStr){
-            NSLog(@"Error getting app list: %@", errorStr);
-            return @{};
-        } else {
-            return ans;
-        }
-    }
-}
-
 @end
