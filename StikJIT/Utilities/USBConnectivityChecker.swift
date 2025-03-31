@@ -32,9 +32,9 @@ class USBConnectivityChecker {
             let group = DispatchGroup()
             group.enter()
             
-            DispatchQueue.global(qos: .utility).async {
-                // Fixed: Use the correct pointer type for UsbmuxdAddrHandle
-                var usb_addr: UnsafeMutablePointer<UsbmuxdAddrHandle>? = nil
+            DispatchQueue.global(qos: .utility).async(execute: DispatchWorkItem {
+                // Use OpaquePointer since UsbmuxdAddrHandle is defined as an opaque type in the C header
+                var usb_addr: OpaquePointer? = nil
                 
                 // Convert the string to C string for the function call
                 let cString = "/var/run/usbmuxd".cString(using: .utf8)
@@ -49,7 +49,7 @@ class USBConnectivityChecker {
                 }
                 
                 group.leave()
-            }
+            })
             
             // Wait with timeout to avoid hanging
             if group.wait(timeout: .now() + 5.0) == .timedOut {
