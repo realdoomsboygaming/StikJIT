@@ -2,15 +2,22 @@
 //  HomeView.swift
 //  StikJIT
 //
-//  Edited by doomsboygaming on 3/31/25.
+//  Edited by realdoomsboygaming on 3/31/25.
 //
 
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension UIDocumentPickerViewController {
+    @objc func fix_init(forOpeningContentTypes contentTypes: [UTType], asCopy: Bool) -> UIDocumentPickerViewController {
+        return fix_init(forOpeningContentTypes: contentTypes, asCopy: true)
+    }
+}
+
 struct HomeView: View {
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
+    @AppStorage("connectionMode") private var connectionMode: Int = 0 // 0 = USB, 1 = TCP/WiFi
     @State private var selectedBackgroundColor: Color = Color(hex: UserDefaults.standard.string(forKey: "customBackgroundColor") ?? "#000000") ?? Color.primaryBackground
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @AppStorage("bundleID") private var bundleID: String = ""
@@ -22,10 +29,11 @@ struct HomeView: View {
     @State private var pairingFileIsValid = false
     @State private var isImportingFile = false
     @State private var importProgress: Float = 0.0
-    @State private var showingTCPConnectionDiagnostics = false
+    @State private var showingConnectionDiagnostics = false
+    @State private var showingTCPConnectionDiagnostics = false // Added for TCP diagnostics
     
     @State private var viewDidAppeared = false
-    @State private var pendingBundleIdToEnableJIT: String? = nil
+    @State private var pendingBundleIdToEnableJIT : String? = nil
 
     var body: some View {
         ZStack {
@@ -45,33 +53,52 @@ struct HomeView: View {
                 }
                 .padding(.top, 40)
                 
-                // WireGuard connection mode indicator
-                HStack {
-                    Image(systemName: "wifi")
-                        .foregroundColor(.green)
-                        .font(.system(size: 16))
-                    Text("WireGuard Mode")
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundColor(.green)
+                // Connection mode indicator when in USB mode
+                if connectionMode == 0 {
+                    HStack {
+                        Image(systemName: "cable.connector")
+                            .foregroundColor(.blue)
+                            .font(.system(size: 16))
+                        Text("USB Mode")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                } else {
+                    HStack {
+                        Image(systemName: "wifi")
+                            .foregroundColor(.green)
+                            .font(.system(size: 16))
+                        Text("WiFi/WireGuard Mode")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.green)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                    )
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                )
                 
-                // TCP Connection diagnostics button
+                // Connection diagnostics button
                 Button(action: {
-                    showingTCPConnectionDiagnostics = true
+                    showingConnectionDiagnostics = true
                 }) {
                     HStack {
-                        Image(systemName: "wifi.circle")
+                        Image(systemName: "arrow.up.arrow.down.circle")
                             .foregroundColor(.purple)
                             .font(.system(size: 16))
-                        Text("TCP Connection Diagnostics")
+                        Text("Connection Diagnostics")
                             .font(.system(.caption, design: .rounded))
                             .foregroundColor(.purple)
                     }
@@ -85,6 +112,29 @@ struct HomeView: View {
                     )
                 }
                 .padding(.vertical, 8)
+                
+                // TCP Connection diagnostics button (new)
+                Button(action: {
+                    showingTCPConnectionDiagnostics = true
+                }) {
+                    HStack {
+                        Image(systemName: "wifi.circle")
+                            .foregroundColor(.teal)
+                            .font(.system(size: 16))
+                        Text("TCP Connection Diagnostics")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.teal)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.teal.opacity(0.1))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.teal.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.vertical, 4) // Reduced vertical padding compared to original button
                 
                 // Main action button - changes based on whether we have a pairing file
                 Button(action: {
@@ -173,11 +223,13 @@ struct HomeView: View {
                 
                 // Add a connection mode explanation at the bottom
                 VStack(spacing: 4) {
-                    Text("WireGuard mode requires network connectivity via WireGuard")
+                    Text(connectionMode == 0 ? 
+                        "USB mode: Connect your device with a cable" : 
+                        "WireGuard mode: Ensure WireGuard is connected")
                         .font(.system(.caption, design: .rounded))
                         .foregroundColor(.secondary)
                     
-                    Text("Check connection status with the diagnostic tool")
+                    Text("Change connection mode in Settings")
                         .font(.system(.caption2, design: .rounded))
                         .foregroundColor(.secondary.opacity(0.7))
                 }
@@ -187,16 +239,19 @@ struct HomeView: View {
         }
         .onAppear {
             checkPairingFileExists()
+            let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
+            JITEnableContext.shared().setConnectionModeSwift(swiftMode)
             
             // Add to logs
-            LogManager.shared.addInfoLog("App started in WiFi/WireGuard mode")
+            LogManager.shared.addInfoLog("App started in \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
         }
         .onReceive(timer) { _ in
             refreshBackground()
             checkPairingFileExists()
         }
-        .fileImporter(isPresented: $isShowingPairingFilePicker, allowedContentTypes: [UTType(filenameExtension: "mobiledevicepairing", conformingTo: .data)!, .propertyList]) { result in
+        .fileImporter(isPresented: $isShowingPairingFilePicker, allowedContentTypes: [UTType(filenameExtension: "mobiledevicepairing", conformingTo: .data)!, .propertyList]) {result in
             switch result {
+            
             case .success(let url):
                 let fileManager = FileManager.default
                 let accessing = url.startAccessingSecurityScopedResource()
@@ -263,12 +318,15 @@ struct HomeView: View {
             }
         }
         .sheet(isPresented: $isShowingInstalledApps) {
-            InstalledAppsListView { selectedBundle in
+            EnhancedAppsListView { selectedBundle in
                 bundleID = selectedBundle
                 isShowingInstalledApps = false
                 HapticFeedbackHelper.trigger()
                 startJITInBackground(with: selectedBundle)
             }
+        }
+        .sheet(isPresented: $showingConnectionDiagnostics) {
+            ConnectionDiagnosticsView()
         }
         .sheet(isPresented: $showingTCPConnectionDiagnostics) {
             TCPConnectionDiagnosticsView()
@@ -298,6 +356,8 @@ struct HomeView: View {
         }
     }
     
+
+    
     private func checkPairingFileExists() {
         pairingFileExists = FileManager.default.fileExists(atPath: URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path)
     }
@@ -310,7 +370,8 @@ struct HomeView: View {
         isProcessing = true
         
         // Add log message with connection mode info
-        LogManager.shared.addInfoLog("Starting JIT for \(bundleID) using WiFi/WireGuard mode")
+        let modeString = connectionMode == 0 ? "USB" : "WiFi/WireGuard"
+        LogManager.shared.addInfoLog("Starting JIT for \(bundleID) using \(modeString) mode")
         
         DispatchQueue.global(qos: .background).async {
             JITEnableContext.shared().debugApp(withBundleID: bundleID, logger: { message in
@@ -328,21 +389,44 @@ struct HomeView: View {
     }
 }
 
+// ViewModel for InstalledAppsListView - kept for compatibility
 class InstalledAppsViewModel: ObservableObject {
     @Published var apps: [String: String] = [:]
+    @Published var isLoading: Bool = false
     
     init() {
         loadApps()
     }
     
     func loadApps() {
-        do {
-            self.apps = try JITEnableContext.shared.getAppList()
-        } catch {
-            print(error)
-            self.apps = [:]
+        isLoading = true
+        
+        // Log that we're trying to load apps
+        LogManager.shared.addInfoLog("Loading installed apps...")
+        
+        // Get apps list from the shared context
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let appList = JITEnableContext.shared().getAppsSimple() {
+                DispatchQueue.main.async {
+                    self.apps = appList
+                    self.isLoading = false
+                    
+                    // Log the results
+                    LogManager.shared.addInfoLog("Found \(appList.count) apps with get-task-allow entitlement")
+                    
+                    // Log some details if debugging
+                    if !appList.isEmpty {
+                        let sampleApps = Array(appList.keys.prefix(3)).joined(separator: ", ")
+                        LogManager.shared.addDebugLog("Sample apps: \(sampleApps)")
+                    }
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    LogManager.shared.addErrorLog("Failed to load apps list")
+                }
+            }
         }
-
     }
 }
 
