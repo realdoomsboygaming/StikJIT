@@ -10,7 +10,6 @@ struct SettingsView: View {
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
     @AppStorage("selectedAppIcon") private var selectedAppIcon: String = "AppIcon"
-    @State private var is_lc: Bool = false
     @State private var isShowingPairingFilePicker = false
     @State private var showingTCPConnectionDiagnostics = false
 
@@ -97,7 +96,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 16)
                     }
                     
-                    // TCP Connection Diagnostics section - Added new card
+                    // TCP Connection Diagnostics section
                     SettingsCard {
                         VStack(alignment: .leading, spacing: 20) {
                             Text("Connection Diagnostics")
@@ -136,13 +135,13 @@ struct SettingsView: View {
                                 .padding(.vertical, 8)
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("WireGuard Connection")
+                                Text("WireGuard Connection Status")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 
                                 HStack(spacing: 12) {
                                     // This would ideally check the real status
-                                    // For now just showing an indicator
+                                    // We'll implement this functionality with our diagnostics
                                     Image(systemName: "wifi")
                                         .foregroundColor(.green)
                                         .background(
@@ -154,21 +153,6 @@ struct SettingsView: View {
                                     
                                     Text("WiFi/WireGuard Mode")
                                         .font(.system(.body, design: .rounded))
-                                    
-                                    Spacer()
-                                    
-                                    Button(action: {
-                                        // Use the TCP diagnostics to check connection
-                                        showingTCPConnectionDiagnostics = true
-                                    }) {
-                                        Text("Check Status")
-                                            .font(.caption)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 5)
-                                            .background(Color.blue.opacity(0.1))
-                                            .foregroundColor(.blue)
-                                            .cornerRadius(8)
-                                    }
                                 }
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
