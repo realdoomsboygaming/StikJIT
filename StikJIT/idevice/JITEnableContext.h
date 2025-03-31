@@ -24,14 +24,20 @@ typedef NS_ENUM(NSInteger, ConnectionMode_objc) {
 @interface JITEnableContext : NSObject
 + (instancetype)shared;
 - (IdevicePairingFile*)getPairingFileWithError:(NSError**)error;
+
+// Start heartbeat with current connection mode
 - (void)startHeartbeatWithCompletionHandler:(HeartbeatCompletionHandler)completionHandler logger:(LogFunc)logger;
+
+// Debug app with current connection mode
 - (void)debugAppWithBundleID:(NSString*)bundleID logger:(LogFunc)logger;
+
+// Get app list with error handling - respects connection mode
 - (NSDictionary<NSString*, NSString*>*)getAppListWithError:(NSError**)error;
 
-// Updated method to set the connection mode using just an integer value
+// Set the connection mode (0=USB, 1=TCP)
 - (void)setConnectionMode:(int)mode;
 
-// New simple method that handles its own error handling
+// Simple method that handles its own error handling and returns empty dict on failure
 - (NSDictionary<NSString*, NSString*>*)getAppsSimple;
 @end
 
