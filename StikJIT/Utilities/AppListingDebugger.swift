@@ -30,7 +30,7 @@ class EnhancedAppsViewModel: ObservableObject {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             
-            // Method 1: Try getAppsSimple
+            // Try getAppsSimple method
             LogManager.shared.addInfoLog("🔍 Debug: Attempting getAppsSimple()")
             if let appsSimple = JITEnableContext.shared().getAppsSimple(), !appsSimple.isEmpty {
                 DispatchQueue.main.async {
@@ -46,33 +46,7 @@ class EnhancedAppsViewModel: ObservableObject {
                 return
             }
             
-            // Method 2: Try getAppListWithError
-            LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying alternative method")
-            
-            var error: NSError?
-            var appList: NSDictionary?
-            
-            // Attempt to get the app list using the error pointer method
-            error = nil
-            let context = JITEnableContext.shared()
-            
-            // Explicitly pass the error pointer to the method
-            appList = context.getAppList(withError: &error)
-            
-            if let appListDict = appList as? [String: String], !appListDict.isEmpty {
-                DispatchQueue.main.async {
-                    self.apps = appListDict
-                    self.isLoading = false
-                    LogManager.shared.addInfoLog("✅ Success: Found \(appListDict.count) apps with alternative method")
-                }
-                return
-            } else if let error = error {
-                LogManager.shared.addErrorLog("❌ Error: getAppListWithError failed: \(error.localizedDescription)")
-            } else {
-                LogManager.shared.addWarningLog("⚠️ Warning: getAppListWithError returned empty result")
-            }
-            
-            // Method 3: Last resort - check if there's a connection issue
+            // Last resort - check if there's a connection issue
             DispatchQueue.main.async {
                 if connectionMode == 0 {
                     LogManager.shared.addInfoLog("🔍 Debug: USB mode connection check")
