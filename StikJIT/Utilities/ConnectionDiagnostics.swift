@@ -1,272 +1,149 @@
-// ConnectionDiagnostics.swift
-// Add this to your project to help diagnose connection issues
-
 import SwiftUI
 import Network
+import Foundation
 
+// Connectivity Diagnostics Utility Class
 class ConnectionDiagnostics: ObservableObject {
+    // Singleton instance
     static let shared = ConnectionDiagnostics()
     
+    // Published properties for UI state
     @Published var isRunningDiagnostics = false
     @Published var usbConnected = false
     @Published var wireguardConnected = false
     @Published var recommendedMode: Int? = nil
     
+    // Private dispatch queues and groups for thread safety
+    private let diagnosticsQueue = DispatchQueue(
+        label: "com.stikjit.connectiondiagnostics", 
+        attributes: .concurrent
+    )
+    private let connectionGroup = DispatchGroup()
+    
+    // Private initializer for singleton
     private init() {}
     
-    /// Run diagnostics on both connection types
+    /// Comprehensive connection diagnostics method
     func runDiagnostics(completion: @escaping () -> Void) {
+        // Prevent multiple simultaneous diagnostic runs
         guard !isRunningDiagnostics else { return }
         
-        isRunningDiagnostics = true
-        LogManager.shared.addInfoLog("🔍 Starting connection diagnostics")
-        
-        // Reset previous results
-        usbConnected = false
-        wireguardConnected = false
-        recommendedMode = nil
-        
-        let group = DispatchGroup()
-        
-        // Check USB connection
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.usbConnected = USBConnectivityChecker.shared.checkUSBConnectivity()
-            LogManager.shared.addInfoLog("🔍 Diagnostics: USB connection \(self?.usbConnected == true ? "succeeded" : "failed")")
-            group.leave()
+        // Reset diagnostics state on main queue to prevent UI glitches
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.isRunningDiagnostics = true
+            self.usbConnected = false
+            self.wireguardConnected = false
+            self.recommendedMode = nil
         }
         
-        // Check WireGuard/TCP connection
-        group.enter()
-        checkWireguardConnection { [weak self] success in
-            self?.wireguardConnected = success
-            LogManager.shared.addInfoLog("🔍 Diagnostics: WireGuard connection \(success ? "succeeded" : "failed")")
-            group.leave()
-        }
+        // Log diagnostic start
+        LogManager.shared.addInfoLog("🔍 Starting comprehensive connection diagnostics")
         
-        // Wait for both checks to complete
-        group.notify(queue: .main) { [weak self] in
+        // Run diagnostics on background queue
+        diagnosticsQueue.async { [weak self] in
             guard let self = self else { return }
             
-            // Determine recommended mode
-            if self.usbConnected && !self.wireguardConnected {
-                self.recommendedMode = 0 // USB mode
-                LogManager.shared.addInfoLog("🔍 Diagnostics: Recommending USB mode")
-            } else if !self.usbConnected && self.wireguardConnected {
-                self.recommendedMode = 1 // TCP/WireGuard mode
-                LogManager.shared.addInfoLog("🔍 Diagnostics: Recommending WireGuard mode")
-            } else if self.usbConnected && self.wireguardConnected {
-                // Both work, prioritize USB for speed
-                self.recommendedMode = 0
-                LogManager.shared.addInfoLog("🔍 Diagnostics: Both connections work, recommending USB for speed")
-            } else {
-                // Neither works
-                self.recommendedMode = nil
-                LogManager.shared.addErrorLog("❌ Diagnostics: Neither connection method works")
+            // Perform concurrent connection checks
+            self.checkUSBConnection()
+            self.checkWireguardConnection()
+            
+            // Wait for all checks to complete
+            self.connectionGroup.notify(queue: .main) {
+                self.determineRecommendedMode()
+                self.isRunningDiagnostics = false
+                completion()
+            }
+        }
+    }
+    
+    /// Check USB connectivity
+    private func checkUSBConnection() {
+        connectionGroup.enter()
+        diagnosticsQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Use USBConnectivityChecker to verify USB connection
+            let isConnected = USBConnectivityChecker.shared.checkUSBConnectivity()
+            
+            DispatchQueue.main.async {
+                self.usbConnected = isConnected
+                LogManager.shared.addInfoLog("🔌 USB Connectivity: \(isConnected ? "Connected" : "Disconnected")")
+                self.connectionGroup.leave()
+            }
+        }
+    }
+    
+    /// Check WireGuard/Network connectivity
+    private func checkWireguardConnection() {
+        connectionGroup.enter()
+        diagnosticsQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Use semaphore for synchronous-like network check
+            let semaphore = DispatchSemaphore(value: 0)
+            var connectionResult = false
+            
+            // Create network connection
+            let connection = self.createWireguardConnection()
+            
+            // Handle connection state updates
+            connection.stateUpdateHandler = { [weak connection] state in
+                switch state {
+                case .ready:
+                    connectionResult = true
+                    connection?.cancel()
+                    semaphore.signal()
+                case .failed, .cancelled:
+                    connectionResult = false
+                    connection?.cancel()
+                    semaphore.signal()
+                default:
+                    break
+                }
             }
             
-            self.isRunningDiagnostics = false
-            completion()
+            // Start connection on global queue
+            connection.start(queue: .global())
+            
+            // Wait with timeout
+            _ = semaphore.wait(timeout: .now() + 5.0)
+            
+            // Update UI on main queue
+            DispatchQueue.main.async {
+                self.wireguardConnected = connectionResult
+                LogManager.shared.addInfoLog("🌐 WireGuard Connectivity: \(connectionResult ? "Connected" : "Disconnected")")
+                self.connectionGroup.leave()
+            }
         }
     }
     
-    /// Check if WireGuard VPN is connected
-    private func checkWireguardConnection(completion: @escaping (Bool) -> Void) {
+    /// Create network connection for WireGuard check
+    private func createWireguardConnection() -> NWConnection {
         let host = NWEndpoint.Host("10.7.0.1")
         let port = NWEndpoint.Port(rawValue: 62078)!
-        
-        let connection = NWConnection(host: host, port: port, using: .tcp)
-        
-        // Create a timeout
-        var timeoutWorkItem: DispatchWorkItem?
-        
-        timeoutWorkItem = DispatchWorkItem { [weak connection] in
-            if connection?.state != .ready {
-                connection?.cancel()
-                completion(false)
-            }
-        }
-        
-        connection.stateUpdateHandler = { [weak connection] state in
-            switch state {
-            case .ready:
-                // Connection succeeded - cancel the timeout
-                timeoutWorkItem?.cancel()
-                connection?.cancel()
-                completion(true)
-            case .failed(let error):
-                // Connection failed - cancel the timeout
-                timeoutWorkItem?.cancel()
-                connection?.cancel()
-                LogManager.shared.addDebugLog("🔍 WireGuard test error: \(error.localizedDescription)")
-                completion(false)
-            case .cancelled:
-                timeoutWorkItem?.cancel()
-                completion(false)
-            default:
-                break
-            }
-        }
-        
-        // Start the connection
-        connection.start(queue: .global())
-        
-        // Schedule the timeout - 3 seconds is usually enough
-        if let workItem = timeoutWorkItem {
-            DispatchQueue.global().asyncAfter(deadline: .now() + 3, execute: workItem)
-        }
+        return NWConnection(host: host, port: port, using: .tcp)
     }
-}
-
-struct ConnectionDiagnosticsView: View {
-    @StateObject private var diagnostics = ConnectionDiagnostics.shared
-    @AppStorage("connectionMode") private var connectionMode: Int = 0
-    @Environment(\.dismiss) private var dismiss
     
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                // Title and explanation
-                VStack(spacing: 8) {
-                    Text("Connection Diagnostics")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Let's figure out which connection method works best for your setup")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                .padding(.top)
-                
-                // Connection status cards
-                Group {
-                    ConnectionStatusCard(
-                        title: "USB Connection",
-                        iconName: "cable.connector",
-                        isConnected: diagnostics.usbConnected,
-                        isRecommended: diagnostics.recommendedMode == 0,
-                        isCurrentMode: connectionMode == 0,
-                        isRunningTest: diagnostics.isRunningDiagnostics
-                    )
-                    
-                    ConnectionStatusCard(
-                        title: "WireGuard Connection",
-                        iconName: "wifi",
-                        isConnected: diagnostics.wireguardConnected,
-                        isRecommended: diagnostics.recommendedMode == 1,
-                        isCurrentMode: connectionMode == 1,
-                        isRunningTest: diagnostics.isRunningDiagnostics
-                    )
-                }
-                
-                Spacer()
-                
-                // Actions
-                VStack(spacing: 16) {
-                    if diagnostics.isRunningDiagnostics {
-                        VStack(spacing: 12) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            Text("Testing connections...")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                    } else {
-                        // Recommendation
-                        if let recommended = diagnostics.recommendedMode {
-                            VStack(spacing: 8) {
-                                Text("Recommended Connection")
-                                    .font(.headline)
-                                
-                                Text(recommended == 0 ? "USB Mode" : "WireGuard Mode")
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(recommended == 0 ? .blue : .green)
-                                
-                                if recommended != connectionMode {
-                                    Button(action: {
-                                        // Switch to recommended mode
-                                        connectionMode = recommended
-                                        // Update in JITEnableContext
-                                        let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
-                                        JITEnableContext.shared().setConnectionModeSwift(swiftMode)
-                                        // Log the change
-                                        LogManager.shared.addInfoLog("🔄 Switched to \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
-                                    }) {
-                                        Text("Switch to Recommended Mode")
-                                            .frame(maxWidth: .infinity)
-                                            .padding()
-                                            .background(Color.blue)
-                                            .foregroundColor(.white)
-                                            .cornerRadius(10)
-                                    }
-                                    .padding(.horizontal)
-                                } else {
-                                    Text("You're already using the recommended mode")
-                                        .font(.subheadline)
-                                        .foregroundColor(.green)
-                                }
-                            }
-                            .padding()
-                            .background(Color(UIColor.secondarySystemBackground))
-                            .cornerRadius(16)
-                            .padding(.horizontal)
-                        } else if !diagnostics.usbConnected && !diagnostics.wireguardConnected {
-                            VStack(spacing: 8) {
-                                Text("No Working Connection")
-                                    .font(.headline)
-                                    .foregroundColor(.red)
-                                
-                                Text("Neither USB nor WireGuard connections are working. Please check your setup.")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding()
-                            .background(Color(UIColor.secondarySystemBackground))
-                            .cornerRadius(16)
-                            .padding(.horizontal)
-                        }
-                        
-                        // Run diagnostics button
-                        Button(action: {
-                            diagnostics.runDiagnostics {
-                                // Completion handler
-                            }
-                        }) {
-                            Text("Run Diagnostics Again")
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue.opacity(0.2))
-                                .foregroundColor(.blue)
-                                .cornerRadius(10)
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                .padding(.bottom)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-            .onAppear {
-                // Run diagnostics when the view appears
-                diagnostics.runDiagnostics {
-                    // Completion handler
-                }
-            }
+    /// Determine the recommended connection mode
+    private func determineRecommendedMode() {
+        if usbConnected && !wireguardConnected {
+            recommendedMode = 0 // USB
+            LogManager.shared.addInfoLog("🔍 Diagnostics recommend USB mode")
+        } else if !usbConnected && wireguardConnected {
+            recommendedMode = 1 // WireGuard
+            LogManager.shared.addInfoLog("🔍 Diagnostics recommend WireGuard mode")
+        } else if usbConnected && wireguardConnected {
+            recommendedMode = 0 // Prioritize USB
+            LogManager.shared.addInfoLog("🔍 Both connections work, prioritizing USB")
+        } else {
+            recommendedMode = nil
+            LogManager.shared.addErrorLog("❌ No working connection found")
         }
     }
 }
 
+// Connection Status Card for Diagnostics View
 struct ConnectionStatusCard: View {
     let title: String
     let iconName: String
@@ -277,7 +154,7 @@ struct ConnectionStatusCard: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Icon
+            // Connection Status Icon
             ZStack {
                 Circle()
                     .fill(backgroundColor)
@@ -298,11 +175,12 @@ struct ConnectionStatusCard: View {
                     .font(.headline)
                 
                 HStack {
-                    // Status text
+                    // Status Text
                     Text(statusText)
                         .font(.subheadline)
                         .foregroundColor(statusColor)
                     
+                    // Current Mode Indicator
                     if isCurrentMode {
                         Text("(Current)")
                             .font(.caption)
@@ -313,6 +191,7 @@ struct ConnectionStatusCard: View {
                             .cornerRadius(4)
                     }
                     
+                    // Recommended Mode Indicator
                     if isRecommended {
                         Text("Recommended")
                             .font(.caption)
@@ -333,6 +212,7 @@ struct ConnectionStatusCard: View {
         .padding(.horizontal)
     }
     
+    // Computed properties for dynamic styling
     private var backgroundColor: Color {
         if isRunningTest {
             return .gray
@@ -360,6 +240,153 @@ struct ConnectionStatusCard: View {
             return .green
         } else {
             return .red
+        }
+    }
+}
+
+// Connection Diagnostics View
+struct ConnectionDiagnosticsView: View {
+    @StateObject private var diagnostics = ConnectionDiagnostics.shared
+    @AppStorage("connectionMode") private var connectionMode: Int = 0
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // Title and Explanation
+                VStack(spacing: 8) {
+                    Text("Connection Diagnostics")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("Identify the best connection method for your device")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                .padding(.top)
+                
+                // Connection Status Cards
+                ConnectionStatusCard(
+                    title: "USB Connection",
+                    iconName: "cable.connector",
+                    isConnected: diagnostics.usbConnected,
+                    isRecommended: diagnostics.recommendedMode == 0,
+                    isCurrentMode: connectionMode == 0,
+                    isRunningTest: diagnostics.isRunningDiagnostics
+                )
+                
+                ConnectionStatusCard(
+                    title: "WireGuard Connection",
+                    iconName: "wifi",
+                    isConnected: diagnostics.wireguardConnected,
+                    isRecommended: diagnostics.recommendedMode == 1,
+                    isCurrentMode: connectionMode == 1,
+                    isRunningTest: diagnostics.isRunningDiagnostics
+                )
+                
+                Spacer()
+                
+                // Diagnostics Actions
+                VStack(spacing: 16) {
+                    if diagnostics.isRunningDiagnostics {
+                        // Loading State
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Testing connections...")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                    } else {
+                        // Recommendation Section
+                        if let recommended = diagnostics.recommendedMode {
+                            VStack(spacing: 8) {
+                                Text("Recommended Connection")
+                                    .font(.headline)
+                                
+                                Text(recommended == 0 ? "USB Mode" : "WireGuard Mode")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(recommended == 0 ? .blue : .green)
+                                
+                                // Mode Switch Button
+                                if recommended != connectionMode {
+                                    Button(action: {
+                                        // Switch to recommended mode
+                                        connectionMode = recommended
+                                        let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
+                                        JITEnableContext.shared().setConnectionModeSwift(swiftMode)
+                                        
+                                        // Log the change
+                                        LogManager.shared.addInfoLog("🔄 Switched to \(connectionMode == 0 ? "USB" : "WiFi/WireGuard") mode")
+                                    }) {
+                                        Text("Switch to Recommended Mode")
+                                            .frame(maxWidth: .infinity)
+                                            .padding()
+                                            .background(Color.blue)
+                                            .foregroundColor(.white)
+                                            .cornerRadius(10)
+                                    }
+                                    .padding(.horizontal)
+                                } else {
+                                    Text("You're using the recommended mode")
+                                        .font(.subheadline)
+                                        .foregroundColor(.green)
+                                }
+                            }
+                            .padding()
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .cornerRadius(16)
+                            .padding(.horizontal)
+                        } else {
+                            // No Working Connection
+                            VStack(spacing: 8) {
+                                Text("Connection Failed")
+                                    .font(.headline)
+                                    .foregroundColor(.red)
+                                
+                                Text("Neither USB nor WireGuard connections are working. Check your setup and try again.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding()
+                            .background(Color(UIColor.secondarySystemBackground))
+                            .cornerRadius(16)
+                            .padding(.horizontal)
+                        }
+                        
+                        // Re-run Diagnostics Button
+                        Button(action: {
+                            diagnostics.runDiagnostics {}
+                        }) {
+                            Text("Run Diagnostics Again")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue.opacity(0.2))
+                                .foregroundColor(.blue)
+                                .cornerRadius(10)
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.bottom)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear {
+                // Automatically run diagnostics on view appearance
+                diagnostics.runDiagnostics {}
+            }
         }
     }
 }
