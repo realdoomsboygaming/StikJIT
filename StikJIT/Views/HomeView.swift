@@ -1,8 +1,8 @@
 //
-//  HomeView.swift
+//  ContentView.swift
 //  StikJIT
 //
-//  Edited by realdoomsboygaming on 3/31/25.
+//  Created by Stephen on 3/26/25.
 //
 
 import SwiftUI
@@ -15,6 +15,8 @@ extension UIDocumentPickerViewController {
 }
 
 struct HomeView: View {
+    var is_lc: Binding<Bool>? = nil
+    
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
     @State private var selectedBackgroundColor: Color = Color(hex: UserDefaults.standard.string(forKey: "customBackgroundColor") ?? "#000000") ?? Color.primaryBackground
@@ -28,8 +30,6 @@ struct HomeView: View {
     @State private var pairingFileIsValid = false
     @State private var isImportingFile = false
     @State private var importProgress: Float = 0.0
-    
-    // New state for TCP connection diagnostics
     @State private var showingTCPConnectionDiagnostics = false
     
     @State private var viewDidAppeared = false
@@ -53,12 +53,12 @@ struct HomeView: View {
                 }
                 .padding(.top, 40)
                 
-                // WireGuard indication
+                // WireGuard Mode Indicator
                 HStack {
                     Image(systemName: "wifi")
                         .foregroundColor(.green)
                         .font(.system(size: 16))
-                    Text("WireGuard Mode")
+                    Text("WiFi/WireGuard Mode")
                         .font(.system(.caption, design: .rounded))
                         .foregroundColor(.green)
                 }
@@ -179,13 +179,13 @@ struct HomeView: View {
                 
                 Spacer()
                 
-                // WireGuard connection explanation
+                // Add a connection mode explanation at the bottom
                 VStack(spacing: 4) {
-                    Text("WireGuard connection must be active for JIT to work")
+                    Text("WireGuard mode requires network connectivity via WireGuard")
                         .font(.system(.caption, design: .rounded))
                         .foregroundColor(.secondary)
                     
-                    Text("Use diagnostics to check your connection status")
+                    Text("Check connection status with the diagnostic tool")
                         .font(.system(.caption2, design: .rounded))
                         .foregroundColor(.secondary.opacity(0.7))
                 }
@@ -196,8 +196,8 @@ struct HomeView: View {
         .onAppear {
             checkPairingFileExists()
             
-            // Log app launch with WireGuard mode
-            LogManager.shared.addInfoLog("App started in WireGuard mode")
+            // Add to logs
+            LogManager.shared.addInfoLog("App started in WiFi/WireGuard mode")
         }
         .onReceive(timer) { _ in
             refreshBackground()
@@ -307,6 +307,8 @@ struct HomeView: View {
         }
     }
     
+
+    
     private func checkPairingFileExists() {
         pairingFileExists = FileManager.default.fileExists(atPath: URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path)
     }
@@ -318,11 +320,11 @@ struct HomeView: View {
     private func startJITInBackground(with bundleID: String) {
         isProcessing = true
         
-        // Add log message for WireGuard mode
-        LogManager.shared.addInfoLog("Starting JIT for \(bundleID) using WireGuard mode")
+        // Add log message
+        LogManager.shared.addInfoLog("Starting JIT for \(bundleID) in WiFi/WireGuard mode")
         
         DispatchQueue.global(qos: .background).async {
-            JITEnableContext.shared().debugApp(withBundleID: bundleID, logger: { message in
+            JITEnableContext.shared.debugApp(withBundleID: bundleID, logger: { message in
                 if let message = message {
                     // Log messages from the JIT process
                     LogManager.shared.addInfoLog(message)
@@ -346,9 +348,8 @@ class InstalledAppsViewModel: ObservableObject {
     
     func loadApps() {
         do {
-            self.apps = try JITEnableContext.shared().getAppList()
+            self.apps = try JITEnableContext.shared.getAppList()
         } catch {
-            print(error)
             self.apps = [:]
         }
     }
