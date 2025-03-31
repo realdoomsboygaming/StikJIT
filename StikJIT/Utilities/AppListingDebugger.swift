@@ -49,24 +49,28 @@ class EnhancedAppsViewModel: ObservableObject {
             // Method 2: Try getAppListWithError
             LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying alternative method")
             
-            var error: NSError? = nil
+            var error: NSError?
             var appList: NSDictionary?
             
-            if let context = JITEnableContext.shared() {
-                appList = context.getAppList(withError: &error)
-            }
-            
-            if let appListDict = appList as? [String: String], !appListDict.isEmpty {
-                DispatchQueue.main.async {
-                    self.apps = appListDict
-                    self.isLoading = false
-                    LogManager.shared.addInfoLog("✅ Success: Found \(appListDict.count) apps with alternative method")
+            do {
+                // Try to get the app list and handle potential errors
+                error = nil
+                appList = try JITEnableContext.shared().getAppList(withError: &error) as NSDictionary
+                
+                if let appListDict = appList as? [String: String], !appListDict.isEmpty {
+                    DispatchQueue.main.async {
+                        self.apps = appListDict
+                        self.isLoading = false
+                        LogManager.shared.addInfoLog("✅ Success: Found \(appListDict.count) apps with alternative method")
+                    }
+                    return
+                } else if let error = error {
+                    LogManager.shared.addErrorLog("❌ Error: getAppListWithError failed: \(error.localizedDescription)")
+                } else {
+                    LogManager.shared.addWarningLog("⚠️ Warning: getAppListWithError returned empty result")
                 }
-                return
-            } else if let error = error {
-                LogManager.shared.addErrorLog("❌ Error: getAppListWithError failed: \(error.localizedDescription)")
-            } else {
-                LogManager.shared.addWarningLog("⚠️ Warning: getAppListWithError returned empty result")
+            } catch {
+                LogManager.shared.addErrorLog("❌ Error: getAppListWithError threw an exception: \(error.localizedDescription)")
             }
             
             // Method 3: Last resort - check if there's a connection issue
