@@ -1,10 +1,3 @@
-//
-//  applist.c
-//  StikJIT
-//
-//  Created by Stephen on 3/27/25.
-//
-
 #include "idevice.h"
 #include <arpa/inet.h>
 #include <stdio.h>
