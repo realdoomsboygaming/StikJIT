@@ -44,15 +44,20 @@ class EnhancedAppsViewModel: ObservableObject {
                 return
             }
             
-            // Method 2: Try getAppListWithError using correct method signature
-            LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying getAppListWithError")
+            // Method 2: Try getAppListWithError using a local NSError
+            LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying alternative method")
             
-            var error: NSError? = nil
-            if let appList = JITEnableContext.shared().getAppList(withError: &error), !appList.isEmpty {
+            var error: NSError?
+            var appList: NSDictionary?
+            
+            // Attempt to get app list using the method that doesn't throw and returns NSError
+            appList = try? JITEnableContext.shared().getAppList(withError: &error)
+            
+            if let appListDict = appList as? [String: String], !appListDict.isEmpty {
                 DispatchQueue.main.async {
-                    self.apps = appList
+                    self.apps = appListDict
                     self.isLoading = false
-                    LogManager.shared.addInfoLog("✅ Success: Found \(appList.count) apps with getAppListWithError")
+                    LogManager.shared.addInfoLog("✅ Success: Found \(appListDict.count) apps with alternative method")
                 }
                 return
             } else if let error = error {
@@ -61,7 +66,7 @@ class EnhancedAppsViewModel: ObservableObject {
                 LogManager.shared.addWarningLog("⚠️ Warning: getAppListWithError returned empty result")
             }
             
-            // Method 3: Last resort - check if there's a USB connection issue
+            // Method 3: Last resort - check if there's a connection issue
             if connectionMode == 0 {
                 LogManager.shared.addInfoLog("🔍 Debug: USB mode connection check")
                 // Try to verify USB connection or suggest switching to TCP mode
@@ -83,7 +88,7 @@ class EnhancedAppsViewModel: ObservableObject {
     }
 }
 
-/// Enhanced version of InstalledAppsListView with better error handling and user feedback
+// Preserve the rest of the previous implementation
 struct EnhancedAppsListView: View {
     @StateObject private var viewModel = EnhancedAppsViewModel()
     @State private var appIcons: [String: UIImage] = [:]
