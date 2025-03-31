@@ -15,20 +15,39 @@ class EnhancedAppsViewModel: ObservableObject {
         let connectionMode = UserDefaults.standard.integer(forKey: "connectionMode") 
         LogManager.shared.addInfoLog("🔍 Debug: Loading apps in mode: \(connectionMode == 0 ? "USB" : "TCP/WiFi")")
         
+        // Verify pairing file exists
+        let fileManager = FileManager.default
+        let pairingFilePath = URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path
+        guard fileManager.fileExists(atPath: pairingFilePath) else {
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.errorMessage = "Pairing file is missing. Please import a pairing file in Settings."
+                LogManager.shared.addErrorLog("❌ Pairing file not found")
+            }
+            return
+        }
+        
         // First, ensure the connection mode is set correctly
         let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
         JITEnableContext.shared().setConnectionModeSwift(swiftMode)
         LogManager.shared.addInfoLog("🔍 Debug: Connection mode set to \(connectionMode == 0 ? "USB" : "TCP/WiFi")")
         
-        // Check if pairing file exists
-        let fileManager = FileManager.default
-        let pairingFilePath = URL.documentsDirectory.appendingPathComponent("pairingFile.plist").path
-        let pairingExists = fileManager.fileExists(atPath: pairingFilePath)
-        LogManager.shared.addInfoLog("🔍 Debug: Pairing file exists: \(pairingExists)")
-        
         // Create a dispatch work item to handle the apps loading
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
+            
+            // Perform USB connectivity check if in USB mode
+            if connectionMode == 0 {
+                let usbConnected = USBConnectivityChecker.shared.checkUSBConnectivity()
+                guard usbConnected else {
+                    DispatchQueue.main.async {
+                        self.isLoading = false
+                        self.errorMessage = "USB connection failed. Ensure your device is connected and trusted."
+                        LogManager.shared.addWarningLog("⚠️ USB connectivity check failed")
+                    }
+                    return
+                }
+            }
             
             // Try getAppsSimple method
             LogManager.shared.addInfoLog("🔍 Debug: Attempting getAppsSimple()")
@@ -50,7 +69,7 @@ class EnhancedAppsViewModel: ObservableObject {
             DispatchQueue.main.async {
                 if connectionMode == 0 {
                     LogManager.shared.addInfoLog("🔍 Debug: USB mode connection check")
-                    self.errorMessage = "No apps found in USB mode. Try checking your USB connection or switch to WiFi mode in Settings."
+                    self.errorMessage = "No apps found in USB mode. Check your USB connection or switch to WiFi mode in Settings."
                 } else {
                     LogManager.shared.addInfoLog("🔍 Debug: TCP/WiFi connection check")
                     self.errorMessage = "No apps found in WiFi mode. Ensure WireGuard is connected or try switching to USB mode in Settings."
