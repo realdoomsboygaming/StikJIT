@@ -10,8 +10,9 @@ struct SettingsView: View {
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
     @AppStorage("selectedAppIcon") private var selectedAppIcon: String = "AppIcon"
-    @AppStorage("autoQuitAfterEnablingJIT") private var doAutoQuitAfterEnablingJIT = false
+    @State private var is_lc: Bool = false
     @State private var isShowingPairingFilePicker = false
+    @State private var showingTCPConnectionDiagnostics = false
 
     @State private var selectedBackgroundColor: Color = Color.primaryBackground
     @State private var showIconPopover = false
@@ -19,7 +20,6 @@ struct SettingsView: View {
     @State private var pairingFileIsValid = false
     @State private var isImportingFile = false
     @State private var importProgress: Float = 0.0
-    @State private var is_lc = false
     
     @StateObject private var mountProg = MountingProgress.shared
     
@@ -29,13 +29,12 @@ struct SettingsView: View {
     
     // Developer profile image URLs 
     private let developerProfiles: [String: String] = [
-        "Stephen": "https://github.com/0-Blu.png",
+        "Blu": "https://github.com/0-Blu.png",
         "jkcoxson": "https://github.com/jkcoxson.png",
         "Stossy11": "https://github.com/Stossy11.png",
         "Neo": "https://github.com/neoarz.png",
         "Se2crid": "https://github.com/Se2crid.png",
-        "Huge_Black": "https://github.com/HugeBlack.png",
-        "Wynwxst": "https://github.com/Wynwxst.png"
+        "HugeBlack": "https://github.com/HugeBlack.png"
     ]
 
     var body: some View {
@@ -98,16 +97,84 @@ struct SettingsView: View {
                         .padding(.horizontal, 16)
                     }
                     
+                    // TCP Connection Diagnostics section - Added new card
                     SettingsCard {
                         VStack(alignment: .leading, spacing: 20) {
-                            Text("Behavior")
+                            Text("Connection Diagnostics")
                                 .font(.headline)
                                 .foregroundColor(.primary)
                                 .padding(.bottom, 4)
                             
-                            Toggle("Automatically Quit After Enabling JIT", isOn: $doAutoQuitAfterEnablingJIT)
-                                .foregroundColor(.primary)
-                                .padding(.vertical, 6)
+                            Button(action: {
+                                showingTCPConnectionDiagnostics = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "wifi.circle")
+                                        .foregroundColor(.blue)
+                                        .frame(width: 30)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("TCP Connection Diagnostics")
+                                            .foregroundColor(.primary)
+                                        
+                                        Text("Check your WireGuard connection status")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            Divider()
+                                .padding(.vertical, 8)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("WireGuard Connection")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                HStack(spacing: 12) {
+                                    // This would ideally check the real status
+                                    // For now just showing an indicator
+                                    Image(systemName: "wifi")
+                                        .foregroundColor(.green)
+                                        .background(
+                                            Circle()
+                                                .fill(Color.green.opacity(0.2))
+                                                .frame(width: 32, height: 32)
+                                        )
+                                        .frame(width: 32, height: 32)
+                                    
+                                    Text("WiFi/WireGuard Mode")
+                                        .font(.system(.body, design: .rounded))
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        // Use the TCP diagnostics to check connection
+                                        showingTCPConnectionDiagnostics = true
+                                    }) {
+                                        Text("Check Status")
+                                            .font(.caption)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(Color.blue.opacity(0.1))
+                                            .foregroundColor(.blue)
+                                            .cornerRadius(8)
+                                    }
+                                }
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(UIColor.tertiarySystemBackground))
+                                .cornerRadius(12)
+                            }
                         }
                         .padding(.vertical, 20)
                         .padding(.horizontal, 16)
@@ -260,21 +327,6 @@ struct SettingsView: View {
                             self.mounted = isMounted()
                         }
                     }
-                    SettingsCard {
-                        VStack(alignment: .leading, spacing: 20) {
-                            Text("Misclaneous Settings")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                                .padding(.bottom, 4)
-                            
-                            Toggle("Enable In-LiveContainer JIT", isOn: $is_lc)
-                                .padding()
-                            
-                            HomeView(is_lc: $is_lc)
-                        }
-                        .padding(.vertical, 20)
-                        .padding(.horizontal, 16)
-                    }
                     
                     
                     // About section
@@ -295,10 +347,10 @@ struct SettingsView: View {
                                 HStack(spacing: 16) {
                                     // App Creator
                                     VStack(spacing: 8) {
-                                        ProfileImage(url: developerProfiles["Stephen"] ?? "")
+                                        ProfileImage(url: developerProfiles["Blu"] ?? "")
                                             .frame(width: 60, height: 60)
                                         
-                                        Text("Stephen")
+                                        Text("Blu")
                                             .fontWeight(.semibold)
                                         
                                         Text("App Creator")
@@ -358,9 +410,7 @@ struct SettingsView: View {
                                     
                                     CollaboratorRow(name: "Se2crid", url: "https://github.com/Se2crid", imageUrl: developerProfiles["Se2crid"] ?? "")
                                     
-                                    CollaboratorRow(name: "Huge_Black", url: "https://github.com/HugeBlack", imageUrl: developerProfiles["HugeBlack"] ?? "")
-                                    
-                                    CollaboratorRow(name: "Wynwxst", url: "https://github.com/Wynwxst", imageUrl: developerProfiles["Wynwxst"] ?? "")
+                                    CollaboratorRow(name: "HugeBlack", url: "https://github.com/HugeBlack", imageUrl: developerProfiles["HugeBlack"] ?? "")
                                 }
                             }
                             
@@ -426,7 +476,7 @@ struct SettingsView: View {
                     // Version info should now come after System Logs
                     HStack {
                         Spacer()
-                        Text("Version 1.1 • iOS \(UIDevice.current.systemVersion)")
+                        Text("Version 1.0 • iOS \(UIDevice.current.systemVersion)")
                             .font(.footnote)
                             .foregroundColor(.secondary.opacity(0.8))
                         Spacer()
@@ -441,6 +491,9 @@ struct SettingsView: View {
             // Add this sheet at the end of the ZStack, before the final closing bracket
             .sheet(isPresented: $showingConsoleLogsView) {
                 ConsoleLogsView()
+            }
+            .sheet(isPresented: $showingTCPConnectionDiagnostics) {
+                TCPConnectionDiagnosticsView()
             }
         }
         .fileImporter(
@@ -726,5 +779,12 @@ struct CollaboratorRow: View {
 struct ConsoleLogsView_Preview: PreviewProvider {
     static var previews: some View {
         ConsoleLogsView()
+    }
+}
+
+// Preview provider
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        SettingsView()
     }
 }
