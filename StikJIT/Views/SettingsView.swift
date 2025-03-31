@@ -10,9 +10,8 @@ struct SettingsView: View {
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
     @AppStorage("selectedAppIcon") private var selectedAppIcon: String = "AppIcon"
-    @AppStorage("connectionMode") private var connectionMode: Int = 0 // 0 = USB, 1 = TCP/WiFi
+    @AppStorage("autoQuitAfterEnablingJIT") private var doAutoQuitAfterEnablingJIT = false
     @State private var isShowingPairingFilePicker = false
-    @State private var showingTCPConnectionDiagnostics = false // Added for TCP diagnostics
 
     @State private var selectedBackgroundColor: Color = Color.primaryBackground
     @State private var showIconPopover = false
@@ -20,6 +19,7 @@ struct SettingsView: View {
     @State private var pairingFileIsValid = false
     @State private var isImportingFile = false
     @State private var importProgress: Float = 0.0
+    @State private var is_lc = false
     
     @StateObject private var mountProg = MountingProgress.shared
     
@@ -29,12 +29,13 @@ struct SettingsView: View {
     
     // Developer profile image URLs 
     private let developerProfiles: [String: String] = [
-        "Blu": "https://github.com/0-Blu.png",
+        "Stephen": "https://github.com/0-Blu.png",
         "jkcoxson": "https://github.com/jkcoxson.png",
         "Stossy11": "https://github.com/Stossy11.png",
         "Neo": "https://github.com/neoarz.png",
         "Se2crid": "https://github.com/Se2crid.png",
-        "HugeBlack": "https://github.com/HugeBlack.png"
+        "Huge_Black": "https://github.com/HugeBlack.png",
+        "Wynwxst": "https://github.com/Wynwxst.png"
     ]
 
     var body: some View {
@@ -97,82 +98,16 @@ struct SettingsView: View {
                         .padding(.horizontal, 16)
                     }
                     
-                    // Connection Settings section
                     SettingsCard {
                         VStack(alignment: .leading, spacing: 20) {
-                            Text("Connection Settings")
+                            Text("Behavior")
                                 .font(.headline)
                                 .foregroundColor(.primary)
                                 .padding(.bottom, 4)
                             
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Connection Mode")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                
-                                // Picker for connection mode
-                                Picker("Connection Mode", selection: $connectionMode) {
-                                    Text("USB").tag(0)
-                                    Text("WiFi/WireGuard").tag(1)
-                                }
-                                .pickerStyle(SegmentedPickerStyle())
-                                .onChange(of: connectionMode) { newValue in
-                                    // Update the JITEnableContext when mode changes
-                                    // FIXED: Use the ConnectionModeSwift enum now
-                                    let swiftMode: ConnectionModeSwift = newValue == 0 ? .USB : .TCP
-                                    JITEnableContext.shared().setConnectionModeSwift(swiftMode)
-                                    
-                                    // Show confirmation alert when changing modes
-                                    let modeName = newValue == 0 ? "USB" : "WiFi/WireGuard"
-                                    showAlert(title: "Connection Mode Changed", 
-                                             message: "Now using \(modeName) mode. This change will take effect when you next enable JIT.", 
-                                             showOk: true, completion: { _ in })
-                                }
-                                
-                                if connectionMode == 0 {
-                                    Text("USB mode allows JIT without WiFi or WireGuard. Connect your device via USB cable.")
-                                        .font(.footnote)
-                                        .foregroundColor(.secondary)
-                                        .padding(.top, 4)
-                                } else {
-                                    Text("WiFi/WireGuard mode requires network connectivity via WireGuard.")
-                                        .font(.footnote)
-                                        .foregroundColor(.secondary)
-                                        .padding(.top, 4)
-                                }
-                            }
-                            
-                            // TCP Connection Diagnostics button (new)
-                            Button(action: {
-                                showingTCPConnectionDiagnostics = true
-                            }) {
-                                HStack {
-                                    Image(systemName: "wifi.circle")
-                                        .foregroundColor(.blue)
-                                        .frame(width: 30)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("TCP Connection Diagnostics")
-                                            .foregroundColor(.primary)
-                                        
-                                        Text("Check your WireGuard connection status")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.vertical, 12)
-                                .padding(.horizontal, 16)
-                                .background(Color.teal.opacity(0.1))
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .padding(.top, 8)
+                            Toggle("Automatically Quit After Enabling JIT", isOn: $doAutoQuitAfterEnablingJIT)
+                                .foregroundColor(.primary)
+                                .padding(.vertical, 6)
                         }
                         .padding(.vertical, 20)
                         .padding(.horizontal, 16)
@@ -325,6 +260,21 @@ struct SettingsView: View {
                             self.mounted = isMounted()
                         }
                     }
+                    SettingsCard {
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text("Misclaneous Settings")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                                .padding(.bottom, 4)
+                            
+                            Toggle("Enable In-LiveContainer JIT", isOn: $is_lc)
+                                .padding()
+                            
+                            HomeView(is_lc: $is_lc)
+                        }
+                        .padding(.vertical, 20)
+                        .padding(.horizontal, 16)
+                    }
                     
                     
                     // About section
@@ -345,10 +295,10 @@ struct SettingsView: View {
                                 HStack(spacing: 16) {
                                     // App Creator
                                     VStack(spacing: 8) {
-                                        ProfileImage(url: developerProfiles["Blu"] ?? "")
+                                        ProfileImage(url: developerProfiles["Stephen"] ?? "")
                                             .frame(width: 60, height: 60)
                                         
-                                        Text("Blu")
+                                        Text("Stephen")
                                             .fontWeight(.semibold)
                                         
                                         Text("App Creator")
@@ -408,7 +358,9 @@ struct SettingsView: View {
                                     
                                     CollaboratorRow(name: "Se2crid", url: "https://github.com/Se2crid", imageUrl: developerProfiles["Se2crid"] ?? "")
                                     
-                                    CollaboratorRow(name: "HugeBlack", url: "https://github.com/HugeBlack", imageUrl: developerProfiles["HugeBlack"] ?? "")
+                                    CollaboratorRow(name: "Huge_Black", url: "https://github.com/HugeBlack", imageUrl: developerProfiles["HugeBlack"] ?? "")
+                                    
+                                    CollaboratorRow(name: "Wynwxst", url: "https://github.com/Wynwxst", imageUrl: developerProfiles["Wynwxst"] ?? "")
                                 }
                             }
                             
@@ -474,7 +426,7 @@ struct SettingsView: View {
                     // Version info should now come after System Logs
                     HStack {
                         Spacer()
-                        Text("Version 1.0 • iOS \(UIDevice.current.systemVersion)")
+                        Text("Version 1.1 • iOS \(UIDevice.current.systemVersion)")
                             .font(.footnote)
                             .foregroundColor(.secondary.opacity(0.8))
                         Spacer()
@@ -489,9 +441,6 @@ struct SettingsView: View {
             // Add this sheet at the end of the ZStack, before the final closing bracket
             .sheet(isPresented: $showingConsoleLogsView) {
                 ConsoleLogsView()
-            }
-            .sheet(isPresented: $showingTCPConnectionDiagnostics) {
-                TCPConnectionDiagnosticsView()
             }
         }
         .fileImporter(
@@ -570,8 +519,6 @@ struct SettingsView: View {
         }
         .onAppear {
             loadCustomBackgroundColor()
-            let swiftMode: ConnectionModeSwift = connectionMode == 0 ? .USB : .TCP
-            JITEnableContext.shared().setConnectionModeSwift(swiftMode)
         }
     }
 
