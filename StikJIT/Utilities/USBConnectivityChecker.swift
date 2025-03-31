@@ -1,6 +1,3 @@
-// USBConnectivityChecker.swift - Fixed version
-// Add this to your project to diagnose USB connection issues
-
 import Foundation
 import UIKit
 
@@ -24,45 +21,39 @@ class USBConnectivityChecker {
             return false
         }
         
-        // Create a UsbmuxdAddrHandle just to test connectivity
-        do {
-            // This code doesn't actually establish a full connection, just tests if the usbmuxd socket is available
-            // Use a separate thread to avoid blocking the main thread
-            var isConnected = false
-            let group = DispatchGroup()
-            group.enter()
+        // Create a dispatch group to synchronize the connection check
+        let group = DispatchGroup()
+        var isConnected = false
+        
+        group.enter()
+        
+        // Use DispatchWorkItem for the USB connection check
+        let workItem = DispatchWorkItem {
+            // Use OpaquePointer since UsbmuxdAddrHandle is defined as an opaque type in the C header
+            var usb_addr: OpaquePointer? = nil
             
-            DispatchQueue.global(qos: .utility).async(execute: DispatchWorkItem {
-                // Use OpaquePointer since UsbmuxdAddrHandle is defined as an opaque type in the C header
-                var usb_addr: OpaquePointer? = nil
-                
-                // Convert the string to C string for the function call
-                let cString = "/var/run/usbmuxd".cString(using: .utf8)
-                let err = idevice_usbmuxd_unix_addr_new(cString, &usb_addr)
-                
-                if err == IdeviceSuccess && usb_addr != nil {
-                    LogManager.shared.addInfoLog("🔌 USB Diagnostics: Successfully created usbmuxd address")
-                    idevice_usbmuxd_addr_free(usb_addr)
-                    isConnected = true
-                } else {
-                    LogManager.shared.addErrorLog("🔌 USB Diagnostics: Failed to create usbmuxd address, error: \(err)")
-                }
-                
-                group.leave()
-            })
+            // Convert the string to C string for the function call
+            let cString = "/var/run/usbmuxd".cString(using: .utf8)
+            let err = idevice_usbmuxd_unix_addr_new(cString, &usb_addr)
             
-            // Wait with timeout to avoid hanging
-            if group.wait(timeout: .now() + 5.0) == .timedOut {
-                LogManager.shared.addErrorLog("🔌 USB Diagnostics: Connection check timed out")
-                return false
+            if err == IdeviceSuccess && usb_addr != nil {
+                LogManager.shared.addInfoLog("🔌 USB Diagnostics: Successfully created usbmuxd address")
+                idevice_usbmuxd_addr_free(usb_addr)
+                isConnected = true
+            } else {
+                LogManager.shared.addErrorLog("🔌 USB Diagnostics: Failed to create usbmuxd address, error: \(err)")
             }
             
-            return isConnected
-            
-        } catch {
-            LogManager.shared.addErrorLog("🔌 USB Diagnostics: Error checking USB connection: \(error.localizedDescription)")
-            return false
+            group.leave()
         }
+        
+        // Execute the work item on a global queue
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
+        
+        // Wait with timeout to avoid hanging
+        _ = group.wait(timeout: .now() + 5.0)
+        
+        return isConnected
     }
     
     /// Provides recommendations on how to fix USB connectivity issues
