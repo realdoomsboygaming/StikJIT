@@ -5,13 +5,6 @@
 //  Edited by realdoomsboygaming on 3/31/25.
 //
 
-//
-//  HomeView.swift
-//  StikJIT
-//
-//  Created by Stephen on 3/26/25.
-//
-
 import SwiftUI
 import UniformTypeIdentifiers
 
