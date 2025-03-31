@@ -1,5 +1,4 @@
-// AppListingDebugger.swift
-// Add this file to your project to debug the app listing issue
+// AppListingDebugger.swift - Fixed version
 
 import Foundation
 import SwiftUI
@@ -31,9 +30,9 @@ class EnhancedAppsViewModel: ObservableObject {
         
         // Try both methods for getting apps to see which one works
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // Method 1: Try getAppsSimple
+            // Method 1: Try getAppsSimple - fixed redundant cast
             LogManager.shared.addInfoLog("🔍 Debug: Attempting getAppsSimple()")
-            if let appsSimple = JITEnableContext.shared().getAppsSimple() as? [String: String], !appsSimple.isEmpty {
+            if let appsSimple = JITEnableContext.shared().getAppsSimple(), !appsSimple.isEmpty {
                 DispatchQueue.main.async {
                     self?.apps = appsSimple
                     self?.isLoading = false
@@ -47,21 +46,25 @@ class EnhancedAppsViewModel: ObservableObject {
                 return
             }
             
-            // Method 2: Try getAppListWithError
+            // Method 2: Try getAppListWithError - fixed try statement
             LogManager.shared.addInfoLog("🔍 Debug: getAppsSimple() failed, trying getAppListWithError()")
             do {
-                if let appList = try JITEnableContext.shared().getAppList(), !appList.isEmpty {
+                // This should match the method signature - removed try and let unwrapping
+                var error: NSError?
+                if let appList = JITEnableContext.shared().getAppListWithError(&error), !appList.isEmpty {
                     DispatchQueue.main.async {
                         self?.apps = appList
                         self?.isLoading = false
                         LogManager.shared.addInfoLog("✅ Success: Found \(appList.count) apps with getAppListWithError()")
                     }
                     return
+                } else if let error = error {
+                    LogManager.shared.addErrorLog("❌ Error: getAppListWithError() failed: \(error.localizedDescription)")
                 } else {
                     LogManager.shared.addWarningLog("⚠️ Warning: getAppListWithError() returned empty result")
                 }
             } catch {
-                LogManager.shared.addErrorLog("❌ Error: getAppListWithError() failed: \(error.localizedDescription)")
+                LogManager.shared.addErrorLog("❌ Error: Exception occurred: \(error.localizedDescription)")
             }
             
             // Method 3: Last resort - check if there's a USB connection issue
@@ -240,13 +243,5 @@ struct EnhancedAppsListView: View {
         .onAppear {
             viewModel.loadApps()
         }
-    }
-}
-
-// Extension for HomeView to use the enhanced list
-extension HomeView {
-    /// Call this method instead of showing the regular InstalledAppsListView
-    func showEnhancedAppsList() {
-        isShowingInstalledApps = true
     }
 }
