@@ -15,8 +15,6 @@ extension UIDocumentPickerViewController {
 }
 
 struct HomeView: View {
-    var is_lc: Binding<Bool>? = nil
-    
     @AppStorage("username") private var username = "User"
     @AppStorage("customBackgroundColor") private var customBackgroundColorHex: String = Color.primaryBackground.toHex() ?? "#000000"
     @State private var selectedBackgroundColor: Color = Color(hex: UserDefaults.standard.string(forKey: "customBackgroundColor") ?? "#000000") ?? Color.primaryBackground
@@ -53,7 +51,7 @@ struct HomeView: View {
                 }
                 .padding(.top, 40)
                 
-                // WireGuard Mode Indicator
+                // WireGuard mode indicator
                 HStack {
                     Image(systemName: "wifi")
                         .foregroundColor(.green)
@@ -96,6 +94,8 @@ struct HomeView: View {
                 
                 // Main action button - changes based on whether we have a pairing file
                 Button(action: {
+                    
+                    
                     if pairingFileExists {
                         // Got a pairing file, show apps
                         if !isMounted() {
@@ -324,12 +324,12 @@ struct HomeView: View {
         LogManager.shared.addInfoLog("Starting JIT for \(bundleID) in WiFi/WireGuard mode")
         
         DispatchQueue.global(qos: .background).async {
-            JITEnableContext.shared.debugApp(withBundleID: bundleID, logger: { message in
+            JITEnableContext.shared().debugApp(withBundleID: bundleID, logger: { message in
                 if let message = message {
                     // Log messages from the JIT process
                     LogManager.shared.addInfoLog(message)
                 }
-            })
+            }, isLC: false) // Adding the isLC parameter with false as default
             
             DispatchQueue.main.async {
                 LogManager.shared.addInfoLog("JIT process completed for \(bundleID)")
@@ -348,12 +348,16 @@ class InstalledAppsViewModel: ObservableObject {
     
     func loadApps() {
         do {
-            self.apps = try JITEnableContext.shared.getAppList()
+            self.apps = try JITEnableContext.shared().getAppList()
         } catch {
+            print(error)
             self.apps = [:]
         }
+
     }
 }
+
+
 
 #Preview {
     HomeView()
