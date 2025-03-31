@@ -1,4 +1,4 @@
-// USBConnectivityChecker.swift
+// USBConnectivityChecker.swift - Fixed version
 // Add this to your project to diagnose USB connection issues
 
 import Foundation
@@ -33,8 +33,12 @@ class USBConnectivityChecker {
             group.enter()
             
             DispatchQueue.global(qos: .utility).async {
-                var usb_addr: UnsafeMutablePointer<UnsafeMutableRawPointer>? = nil
-                let err = idevice_usbmuxd_unix_addr_new("/var/run/usbmuxd", &usb_addr)
+                // Fixed: Use the correct pointer type for UsbmuxdAddrHandle
+                var usb_addr: UnsafeMutablePointer<UsbmuxdAddrHandle>? = nil
+                
+                // Convert the string to C string for the function call
+                let cString = "/var/run/usbmuxd".cString(using: .utf8)
+                let err = idevice_usbmuxd_unix_addr_new(cString, &usb_addr)
                 
                 if err == IdeviceSuccess && usb_addr != nil {
                     LogManager.shared.addInfoLog("🔌 USB Diagnostics: Successfully created usbmuxd address")
