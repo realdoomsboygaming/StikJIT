@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  HomeView.swift
 //  StikJIT
 //
 //  Created by Stephen on 3/26/25.
@@ -29,6 +29,7 @@ struct HomeView: View {
     @State private var pairingFileIsValid = false
     @State private var isImportingFile = false
     @State private var importProgress: Float = 0.0
+    @State private var showingConnectionDiagnostics = false
     
     @State private var viewDidAppeared = false
     @State private var pendingBundleIdToEnableJIT : String? = nil
@@ -87,6 +88,29 @@ struct HomeView: View {
                             .stroke(Color.green.opacity(0.3), lineWidth: 1)
                     )
                 }
+                
+                // Connection diagnostics button
+                Button(action: {
+                    showingConnectionDiagnostics = true
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.up.arrow.down.circle")
+                            .foregroundColor(.purple)
+                            .font(.system(size: 16))
+                        Text("Connection Diagnostics")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.purple)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.vertical, 8)
                 
                 // Main action button - changes based on whether we have a pairing file
                 Button(action: {
@@ -277,6 +301,9 @@ struct HomeView: View {
                 startJITInBackground(with: selectedBundle)
             }
         }
+        .sheet(isPresented: $showingConnectionDiagnostics) {
+            ConnectionDiagnosticsView()
+        }
         .onOpenURL { url in
             print(url.path())
             if url.host() != "enable-jit" {
@@ -333,7 +360,7 @@ struct HomeView: View {
     }
 }
 
-// ViewModel for InstalledAppsListView
+// ViewModel for InstalledAppsListView - kept for compatibility
 class InstalledAppsViewModel: ObservableObject {
     @Published var apps: [String: String] = [:]
     @Published var isLoading: Bool = false
@@ -373,7 +400,6 @@ class InstalledAppsViewModel: ObservableObject {
         }
     }
 }
-
 
 #Preview {
     HomeView()
